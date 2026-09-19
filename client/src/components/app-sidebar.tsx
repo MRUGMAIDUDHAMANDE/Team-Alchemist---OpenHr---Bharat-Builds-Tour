@@ -25,11 +25,11 @@ const primaryNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/profile", label: "Profile", icon: UserRoundIcon },
   { href: "/availability", label: "My availability", icon: CalendarRangeIcon },
+  { href: "/requests", label: "Requests", icon: InboxIcon },
+  { href: "/bookings", label: "Bookings", icon: CalendarCheckIcon },
 ];
 
 const upcomingNav: NavItem[] = [
-  { label: "Requests", icon: InboxIcon },
-  { label: "Bookings", icon: CalendarCheckIcon },
   { label: "Notifications", icon: BellIcon },
 ];
 

@@ -37,6 +37,8 @@ import "dotenv/config";
 const region = process.env.AWS_REGION ?? "ap-south-1";
 const usersTable = process.env.DYNAMODB_USERS_TABLE ?? "openhr-users";
 const availabilityTable = process.env.DYNAMODB_AVAILABILITY_TABLE ?? "openhr-availability";
+const requestsTable = process.env.DYNAMODB_REQUESTS_TABLE ?? "openhr-requests";
+const bookingsTable = process.env.DYNAMODB_BOOKINGS_TABLE ?? "openhr-bookings";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
 
 const cognito = new CognitoIdentityProviderClient({ region });
@@ -225,6 +227,102 @@ async function ensureAvailabilityTable(): Promise<string> {
   return availabilityTable;
 }
 
+interface TableKey {
+  AttributeName: string;
+  KeyType: "HASH" | "RANGE";
+}
+
+interface TableIndex {
+  IndexName: string;
+  Keys: TableKey[];
+}
+
+async function ensureTable(table: string, attributes: string[], keys: TableKey[], indexes: TableIndex[]): Promise<string> {
+  try {
+    await dynamo.send(new DescribeTableCommand({ TableName: table }));
+    log("DynamoDB table already exists", table);
+    return table;
+  } catch (error) {
+    if (error instanceof Error && error.name !== "ResourceNotFoundException") {
+      throw error;
+    }
+  }
+
+  await dynamo.send(
+    new CreateTableCommand({
+      TableName: table,
+      BillingMode: "PAY_PER_REQUEST",
+      AttributeDefinitions: attributes.map((name) => ({ AttributeName: name, AttributeType: "S" })),
+      KeySchema: keys.map((key) => ({ AttributeName: key.AttributeName, KeyType: key.KeyType })),
+      GlobalSecondaryIndexes: indexes.map((index) => ({
+        IndexName: index.IndexName,
+        KeySchema: index.Keys.map((key) => ({ AttributeName: key.AttributeName, KeyType: key.KeyType })),
+        Projection: { ProjectionType: "ALL" },
+      })),
+      Tags: [{ Key: "Project", Value: "OpenHR" }],
+    }),
+  );
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const described = await dynamo.send(new DescribeTableCommand({ TableName: table }));
+    if (described.Table?.TableStatus === "ACTIVE") break;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  log("DynamoDB table created", table);
+  return table;
+}
+
+async function ensureRequestsTable(): Promise<string> {
+  return ensureTable(
+    requestsTable,
+    ["requestId", "availabilityId", "seekerId", "publisherId", "createdAt"],
+    [{ AttributeName: "requestId", KeyType: "HASH" }],
+    [
+      { IndexName: "availability-index", Keys: [{ AttributeName: "availabilityId", KeyType: "HASH" }] },
+      {
+        IndexName: "seeker-index",
+        Keys: [
+          { AttributeName: "seekerId", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+      {
+        IndexName: "publisher-index",
+        Keys: [
+          { AttributeName: "publisherId", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+    ],
+  );
+}
+
+async function ensureBookingsTable(): Promise<string> {
+  return ensureTable(
+    bookingsTable,
+    ["bookingId", "availabilityId", "publisherId", "seekerId", "startTime"],
+    [{ AttributeName: "bookingId", KeyType: "HASH" }],
+    [
+      { IndexName: "availability-index", Keys: [{ AttributeName: "availabilityId", KeyType: "HASH" }] },
+      {
+        IndexName: "publisher-index",
+        Keys: [
+          { AttributeName: "publisherId", KeyType: "HASH" },
+          { AttributeName: "startTime", KeyType: "RANGE" },
+        ],
+      },
+      {
+        IndexName: "seeker-index",
+        Keys: [
+          { AttributeName: "seekerId", KeyType: "HASH" },
+          { AttributeName: "startTime", KeyType: "RANGE" },
+        ],
+      },
+    ],
+  );
+}
+
 async function ensureMediaBucket(): Promise<string | null> {
   if (!bucketName) {
     log("S3 bucket skipped", "Set S3_BUCKET_NAME to provision one.");
@@ -304,6 +402,8 @@ async function main() {
   const { userPoolId, clientId } = await ensureUserPool();
   const table = await ensureUsersTable();
   const slots = await ensureAvailabilityTable();
+  const requests = await ensureRequestsTable();
+  const bookings = await ensureBookingsTable();
   const bucket = await ensureMediaBucket();
 
   console.log("\n────────────────────────────────────────────────────────────");
@@ -314,6 +414,8 @@ async function main() {
   console.log(`COGNITO_CLIENT_ID=${clientId}`);
   console.log(`DYNAMODB_USERS_TABLE=${table}`);
   console.log(`DYNAMODB_AVAILABILITY_TABLE=${slots}`);
+  console.log(`DYNAMODB_REQUESTS_TABLE=${requests}`);
+  console.log(`DYNAMODB_BOOKINGS_TABLE=${bookings}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);
   console.log(`S3_REGION=${region}`);
   console.log("────────────────────────────────────────────────────────────");

@@ -36,6 +36,10 @@ const envSchema = z.object({
   DYNAMODB_USERS_TABLE: z.string().default("openhr-users"),
   /** DynamoDB table that stores availability slots. */
   DYNAMODB_AVAILABILITY_TABLE: z.string().default("openhr-availability"),
+  /** DynamoDB table that stores booking requests. */
+  DYNAMODB_REQUESTS_TABLE: z.string().default("openhr-requests"),
+  /** DynamoDB table that stores confirmed bookings. */
+  DYNAMODB_BOOKINGS_TABLE: z.string().default("openhr-bookings"),
 
   /** Amazon S3 bucket for private media (wired up in a later milestone). */
   S3_BUCKET_NAME: z.string().optional(),

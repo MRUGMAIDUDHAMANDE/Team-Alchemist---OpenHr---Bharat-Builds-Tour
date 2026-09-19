@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -10,6 +11,7 @@ import { combineLocalDateTime } from "@/lib/availability/form";
 import { formatSlotWindow } from "@/lib/availability/format";
 import type { AvailabilitySlot } from "@/lib/availability/types";
 import { AvailabilityCard } from "@/components/availability-card";
+import { RequestDialog } from "@/components/marketplace/request-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/form/form-alert";
@@ -33,7 +35,8 @@ const ratingOptions = [
 ];
 
 export default function ExplorePage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [skills, setSkills] = useState("");
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
@@ -47,6 +50,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestSlot, setRequestSlot] = useState<AvailabilitySlot | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +75,14 @@ export default function ExplorePage() {
   }, []);
 
   const visibleItems = user ? items.filter((slot) => slot.publisherId !== user.userId) : items;
+
+  const handleRequest = (slot: AvailabilitySlot) => {
+    if (!isAuthenticated) {
+      router.push("/login?next=/explore");
+      return;
+    }
+    setRequestSlot(slot);
+  };
 
   const buildFilter = (): SearchAvailabilityFilter | null => {
     const filter: SearchAvailabilityFilter = { limit: 20 };
@@ -300,14 +312,21 @@ export default function ExplorePage() {
                 skills={slot.skills}
                 status={slot.status}
                 footer={
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={`/u/${slot.publisherId}`}>View profile</Link>
-                  </Button>
+                  <>
+                    <Button size="sm" asChild>
+                      <Link href={`/u/${slot.publisherId}`}>View profile</Link>
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleRequest(slot)}>
+                      Request slot
+                    </Button>
+                  </>
                 }
               />
             ))}
           </div>
         )}
+
+        <RequestDialog slot={requestSlot} onClose={() => setRequestSlot(null)} onSent={() => router.push("/requests")} />
 
         {cursor && !loading ? (
           <div className="flex justify-center">

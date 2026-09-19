@@ -7,6 +7,8 @@ import { generalRateLimiter } from "./middleware/rate-limit";
 import { authRouter } from "./modules/auth/auth.routes";
 import { usersRouter } from "./modules/users/users.routes";
 import { availabilityRouter } from "./modules/availability/availability.routes";
+import { bookingsRouter } from "./modules/bookings/bookings.routes";
+import { requestsRouter } from "./modules/requests/requests.routes";
 
 /**
  * Builds the Express application without starting a listener. Keeping app
@@ -45,6 +47,8 @@ export function createApp(): Express {
   app.use("/auth", authRouter);
   app.use("/users", usersRouter);
   app.use("/availability", availabilityRouter);
+  app.use("/requests", requestsRouter);
+  app.use("/bookings", bookingsRouter);
 
   // Order matters: unmatched routes -> 404, then the error boundary.
   app.use(notFoundHandler);

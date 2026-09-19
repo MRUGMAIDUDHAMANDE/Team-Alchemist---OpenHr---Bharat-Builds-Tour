@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "node --test --import tsx tests/auth.test.ts tests/users.test.ts tests/availability.test.ts",
+    "test": "node --test --import tsx tests/auth.test.ts tests/users.test.ts tests/availability.test.ts tests/requests.test.ts",
+    "test:concurrency": "tsx src/scripts/concurrency-test.ts",
     "provision": "tsx src/scripts/provision.ts"
   },
   "dependencies": {
