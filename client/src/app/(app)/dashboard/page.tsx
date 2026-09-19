@@ -1,22 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BadgeCheckIcon,
-  CircleIcon,
-  CircleCheckIcon,
-  ClockIcon,
-  MailIcon,
-  ShieldIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
-import { Badge } from "@/components/ui/badge";
+import { AccountCard } from "@/components/profile/account-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-function formatMemberSince(iso: string) {
-  return iso.slice(0, 10);
-}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -51,56 +40,19 @@ export default function DashboardPage() {
           Welcome back, {firstName}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Your account is ready. The marketplace modules land in the next milestones.
+          Finish your profile, then publish availability when that milestone lands.
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-sm font-medium">Account</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="flex items-center gap-2 text-muted-foreground">
-                <MailIcon className="size-4" />
-                Email
-              </dt>
-              <dd className="truncate font-medium">{user.email}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="flex items-center gap-2 text-muted-foreground">
-                <ShieldIcon className="size-4" />
-                Role
-              </dt>
-              <dd>
-                <Badge variant="outline">{user.role}</Badge>
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="flex items-center gap-2 text-muted-foreground">
-                <BadgeCheckIcon className="size-4" />
-                Status
-              </dt>
-              <dd>
-                <Badge variant={user.status === "ACTIVE" ? "secondary" : "destructive"}>
-                  {user.status === "ACTIVE" ? "Active" : user.status}
-                </Badge>
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="flex items-center gap-2 text-muted-foreground">
-                <ClockIcon className="size-4" />
-                Member since
-              </dt>
-              <dd className="font-medium">{formatMemberSince(user.createdAt)}</dd>
-            </div>
-          </dl>
-
-          <div className="mt-5 border-t pt-4">
+        <AccountCard
+          user={user}
+          action={
             <Button size="sm" variant="outline" asChild>
-              <Link href="/">Back to home</Link>
+              <Link href="/profile/edit">Edit profile</Link>
             </Button>
-          </div>
-        </section>
+          }
+        />
 
         <section className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
           <h2 className="font-heading text-sm font-medium">Getting started</h2>
@@ -119,6 +71,13 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
+          <div className="mt-5 border-t pt-4">
+            <Button size="sm" asChild>
+              <Link href={profileComplete ? `/u/${user.userId}` : "/profile/edit"}>
+                {profileComplete ? "View public profile" : "Edit profile"}
+              </Link>
+            </Button>
+          </div>
         </section>
       </div>
     </div>

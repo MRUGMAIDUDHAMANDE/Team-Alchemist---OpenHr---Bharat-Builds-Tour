@@ -22,6 +22,7 @@ interface NavItem {
 
 const primaryNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+  { href: "/profile", label: "Profile", icon: UserRoundIcon },
 ];
 
 const upcomingNav: NavItem[] = [
@@ -30,7 +31,6 @@ const upcomingNav: NavItem[] = [
   { label: "Requests", icon: InboxIcon },
   { label: "Bookings", icon: CalendarCheckIcon },
   { label: "Notifications", icon: BellIcon },
-  { label: "Profile", icon: UserRoundIcon },
 ];
 
 function isActive(pathname: string, href: string) {

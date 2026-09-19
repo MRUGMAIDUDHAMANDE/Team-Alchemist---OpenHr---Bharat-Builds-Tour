@@ -18,6 +18,8 @@ import {
   tokensFromResponse,
 } from "./storage";
 import type { AuthStatus, AuthTokens, AuthUser, LoginInput, SignupInput } from "./types";
+import { usersApi } from "@/lib/users/api";
+import type { ProfileUpdateInput } from "@/lib/users/types";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -34,6 +36,7 @@ interface AuthContextValue {
     newPassword: string;
   }) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (input: ProfileUpdateInput) => Promise<AuthUser>;
   refreshUser: () => Promise<AuthUser | null>;
 }
 
@@ -112,6 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateProfile = useCallback(async (input: ProfileUpdateInput) => {
+    const { user: profile } = await usersApi.updateMyProfile(input);
+    setUser(profile);
+    setStatus("authenticated");
+    return profile;
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await authApi.logout();
@@ -137,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       requestPasswordReset,
       resetPassword,
       signOut,
+      updateProfile,
       refreshUser,
     }),
     [
@@ -149,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       requestPasswordReset,
       resetPassword,
       signOut,
+      updateProfile,
       refreshUser,
     ],
   );

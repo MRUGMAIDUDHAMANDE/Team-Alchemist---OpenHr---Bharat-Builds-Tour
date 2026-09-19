@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOutIcon } from "lucide-react";
+import { LogOutIcon, UserRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -49,6 +50,12 @@ export function UserMenu() {
           <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <UserRoundIcon className="size-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={handleSignOut}>
           <LogOutIcon className="size-4" />
           Sign out

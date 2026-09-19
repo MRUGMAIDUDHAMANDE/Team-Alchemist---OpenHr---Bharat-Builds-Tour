@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * against Cognito's JWKS, and pages re-check the session via the DAL. Someone
  * who forges this cookie still gets nothing: their requests are rejected.
  */
-const PROTECTED_PREFIXES = ["/dashboard"];
+const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/u"];
 const GUEST_ONLY = ["/login", "/signup", "/forgot-password", "/reset-password", "/verify"];
 
 export function proxy(request: NextRequest) {
