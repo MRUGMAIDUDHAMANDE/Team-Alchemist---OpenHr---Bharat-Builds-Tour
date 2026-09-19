@@ -24,6 +24,15 @@ export interface AvailabilityUpdate {
   expectedStatus: AvailabilityStatus;
 }
 
+export interface AvailabilitySearchInput {
+  keyCondition: string;
+  filterExpression?: string;
+  names: Record<string, string>;
+  values: Record<string, unknown>;
+  limit: number;
+  exclusiveStartKey?: Record<string, unknown>;
+}
+
 export const availabilityRepository = {
   async create(slot: AvailabilitySlot): Promise<AvailabilitySlot> {
     await ddb.send(
@@ -84,6 +93,27 @@ export const availabilityRepository = {
         Limit: filter.limit,
         ScanIndexForward: true,
         ExclusiveStartKey: filter.exclusiveStartKey as QueryCommandInput["ExclusiveStartKey"],
+      }),
+    );
+
+    return {
+      items: (result.Items as AvailabilitySlot[] | undefined) ?? [],
+      lastKey: result.LastEvaluatedKey as Record<string, unknown> | undefined,
+    };
+  },
+
+  async searchAvailable(input: AvailabilitySearchInput): Promise<AvailabilityListResult> {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: env.DYNAMODB_AVAILABILITY_TABLE,
+        IndexName: STATUS_TIME_INDEX,
+        KeyConditionExpression: input.keyCondition,
+        ExpressionAttributeNames: input.names,
+        ExpressionAttributeValues: input.values,
+        ...(input.filterExpression ? { FilterExpression: input.filterExpression } : {}),
+        Limit: input.limit,
+        ScanIndexForward: true,
+        ExclusiveStartKey: input.exclusiveStartKey as QueryCommandInput["ExclusiveStartKey"],
       }),
     );
 

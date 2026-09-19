@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createAvailabilitySchema, updateAvailabilitySchema, type CreateAvailabilityInput } from "../src/modules/availability/availability.schemas";
+import { buildSearchQuery, matchesSearchText } from "../src/modules/availability/availability.search";
+import { createAvailabilitySchema, searchAvailabilityQuerySchema, updateAvailabilitySchema, type CreateAvailabilityInput } from "../src/modules/availability/availability.schemas";
 import { availabilityService, type AvailabilityStore, type PublisherDirectory } from "../src/modules/availability/availability.service";
 import { decodePageCursor, encodePageCursor } from "../src/modules/availability/availability.pagination";
 import { isAppError } from "../src/lib/errors";
@@ -78,6 +79,7 @@ function createPublisher(current: UserProfile | null = profile) {
 function createAvailability(current: AvailabilitySlot | null = slot, updateError?: unknown) {
   const created: AvailabilitySlot[] = [];
   const listed: Array<{ publisherId: string; filter: unknown }> = [];
+  const searched: Array<unknown> = [];
   const updated: Array<{ availabilityId: string; publisherId: string; update: unknown }> = [];
   const store: AvailabilityStore = {
     async create(value: AvailabilitySlot) {
@@ -91,6 +93,10 @@ function createAvailability(current: AvailabilitySlot | null = slot, updateError
       listed.push({ publisherId, filter });
       return { items: current ? [current] : [], lastKey: { availabilityId: "next-slot" } };
     },
+    async searchAvailable(search) {
+      searched.push(search);
+      return { items: current ? [current] : [], lastKey: { availabilityId: "next-slot" } };
+    },
     async updateOwned(availabilityId: string, publisherId: string, update) {
       updated.push({ availabilityId, publisherId, update });
       if (updateError) throw updateError;
@@ -98,7 +104,7 @@ function createAvailability(current: AvailabilitySlot | null = slot, updateError
       return { ...current, ...update.patch } as AvailabilitySlot;
     },
   };
-  return { store, created, listed, updated };
+  return { store, created, listed, searched, updated };
 }
 
 function conditionalError(): Error {
@@ -251,6 +257,86 @@ describe("updateAvailabilitySchema", () => {
   it("requires at least one editable field", () => {
     assert.equal(updateAvailabilitySchema.safeParse({}).success, false);
     assert.equal(updateAvailabilitySchema.safeParse({ location: "Mumbai" }).success, true);
+  });
+});
+
+describe("availabilityService.searchAvailable", () => {
+  it("queries only available slots and applies text matching", async () => {
+    const availability = createAvailability();
+    const page = await availabilityService.searchAvailable(
+      { mode: "ANY", limit: 20, skills: ["python"], location: "pune" },
+      availability.store,
+      NOW,
+    );
+
+    assert.equal(page.items.length, 1);
+    assert.equal(page.nextCursor, encodePageCursor({ availabilityId: "next-slot" }));
+    const sent = availability.searched[0] as { keyCondition: string; values: Record<string, unknown> };
+    assert.ok(sent.keyCondition.includes("#status = :status"));
+    assert.equal(sent.values[":status"], "AVAILABLE");
+  });
+
+  it("drops slots that fail the text filter", async () => {
+    const availability = createAvailability();
+    const page = await availabilityService.searchAvailable(
+      { mode: "ANY", limit: 20, skills: ["Plumbing"] },
+      availability.store,
+      NOW,
+    );
+
+    assert.equal(page.items.length, 0);
+    assert.equal(page.nextCursor, encodePageCursor({ availabilityId: "next-slot" }));
+  });
+});
+
+describe("buildSearchQuery", () => {
+  it("builds key, overlap, rate, rating, and mode conditions", () => {
+    const plan = buildSearchQuery({
+      to: END,
+      maxHourlyRate: 800,
+      minRating: 4.5,
+      mode: "ONLINE",
+      limit: 20,
+      effectiveFrom: START,
+    });
+
+    assert.equal(plan.keyCondition, "#status = :status AND #startTime <= :to");
+    assert.ok(plan.filterExpression?.includes("#endTime > :from"));
+    assert.ok(plan.filterExpression?.includes("#hourlyRate <= :maxHourlyRate"));
+    assert.ok(plan.filterExpression?.includes("#publisherRatingAverage >= :minRating"));
+    assert.ok(plan.filterExpression?.includes("(#mode = :mode OR #mode = :anyMode)"));
+    assert.equal(plan.values[":status"], "AVAILABLE");
+  });
+
+  it("omits the mode filter when any mode is acceptable", () => {
+    const plan = buildSearchQuery({ mode: "ANY", limit: 20, effectiveFrom: START });
+    assert.ok(!plan.filterExpression?.includes("#mode"));
+  });
+});
+
+describe("matchesSearchText", () => {
+  it("matches skills case-insensitively and locations by substring", () => {
+    assert.equal(matchesSearchText(slot, { skills: ["PYTHON"] }), true);
+    assert.equal(matchesSearchText(slot, { skills: ["Plumbing"] }), false);
+    assert.equal(matchesSearchText(slot, { location: "pun" }), true);
+    assert.equal(matchesSearchText(slot, { location: "Mumbai" }), false);
+    assert.equal(matchesSearchText(slot, {}), true);
+  });
+});
+
+describe("searchAvailabilityQuerySchema", () => {
+  it("parses comma-separated skills and defaults the mode", () => {
+    const parsed = searchAvailabilityQuerySchema.parse({ skills: "React, Python", limit: "10" });
+    assert.deepEqual(parsed.skills, ["React", "Python"]);
+    assert.equal(parsed.mode, "ANY");
+    assert.equal(parsed.limit, 10);
+  });
+
+  it("rejects an inverted time window", () => {
+    assert.equal(
+      searchAvailabilityQuerySchema.safeParse({ from: END, to: START }).success,
+      false,
+    );
   });
 });
 

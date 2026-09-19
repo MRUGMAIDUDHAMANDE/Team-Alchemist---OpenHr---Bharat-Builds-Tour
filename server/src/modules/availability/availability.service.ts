@@ -3,12 +3,13 @@ import { AppError } from "../../lib/errors";
 import { assertCreatableWindow, normalizeSkills } from "./availability.rules";
 import { decodePageCursor, encodePageCursor } from "./availability.pagination";
 import type { AvailabilitySlot, AvailabilityStatus } from "./availability.types";
-import type { CreateAvailabilityInput, ListMineQuery, UpdateAvailabilityInput } from "./availability.schemas";
+import type { CreateAvailabilityInput, ListMineQuery, SearchAvailabilityQuery, UpdateAvailabilityInput } from "./availability.schemas";
 import type { availabilityRepository } from "./availability.repository";
 import type { usersRepository } from "../users/users.repository";
 import type { UserProfile } from "../users/users.types";
+import { buildSearchQuery, matchesSearchText } from "./availability.search";
 
-export type AvailabilityStore = Pick<typeof availabilityRepository, "create" | "getById" | "listByPublisher" | "updateOwned">;
+export type AvailabilityStore = Pick<typeof availabilityRepository, "create" | "getById" | "listByPublisher" | "searchAvailable" | "updateOwned">;
 export type PublisherDirectory = Pick<typeof usersRepository, "getById">;
 
 export interface AvailabilityPage {
@@ -92,6 +93,36 @@ export const availabilityService = {
       exclusiveStartKey: decodePageCursor(query.cursor),
     });
     return { items: result.items, nextCursor: encodePageCursor(result.lastKey) };
+  },
+
+  async searchAvailable(
+    query: SearchAvailabilityQuery,
+    store: AvailabilityStore,
+    now: number = Date.now(),
+  ): Promise<AvailabilityPage> {
+    const effectiveFrom = query.from ?? new Date(now).toISOString();
+    const plan = buildSearchQuery({
+      to: query.to,
+      maxHourlyRate: query.maxHourlyRate,
+      minRating: query.minRating,
+      mode: query.mode,
+      limit: query.limit,
+      effectiveFrom,
+    });
+
+    const result = await store.searchAvailable({
+      keyCondition: plan.keyCondition,
+      ...(plan.filterExpression ? { filterExpression: plan.filterExpression } : {}),
+      names: plan.names,
+      values: plan.values,
+      limit: plan.limit,
+      exclusiveStartKey: decodePageCursor(query.cursor),
+    });
+
+    const items = result.items.filter((slot) =>
+      matchesSearchText(slot, { skills: query.skills, location: query.location }),
+    );
+    return { items, nextCursor: encodePageCursor(result.lastKey) };
   },
 
   async getMine(publisherId: string, availabilityId: string, store: AvailabilityStore): Promise<AvailabilitySlot> {

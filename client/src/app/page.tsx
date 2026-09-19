@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, CalendarCheckIcon, SearchIcon, ShieldCheckIcon } from "lucide-react";
 import { AvailabilityCard } from "@/components/availability-card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,38 +38,13 @@ const sampleAvailability = [
 export default function LandingPage() {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
-              <span className="text-xs font-bold">O</span>
-            </span>
-            OpenHR
-          </Link>
-
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <Link href="#available" className="transition-colors hover:text-foreground">
-              Explore
-            </Link>
-            <Link href="#modes" className="transition-colors hover:text-foreground">
-              How it works
-            </Link>
-            <Link href="#trust" className="transition-colors hover:text-foreground">
-              Trust
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-1.5">
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/signup">Create account</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        links={[
+          { href: "/explore", label: "Explore" },
+          { href: "#modes", label: "How it works" },
+          { href: "#trust", label: "Trust" },
+        ]}
+      />
 
       <main className="flex-1">
         <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
@@ -83,7 +58,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Button size="lg" asChild>
-                <Link href="/signup">
+                <Link href="/explore">
                   Find someone
                   <ArrowRightIcon className="size-4" />
                 </Link>

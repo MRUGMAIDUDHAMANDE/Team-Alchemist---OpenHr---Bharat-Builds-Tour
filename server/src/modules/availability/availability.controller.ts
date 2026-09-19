@@ -3,7 +3,7 @@ import { asyncHandler } from "../../lib/async-handler";
 import { AppError } from "../../lib/errors";
 import { availabilityRepository } from "./availability.repository";
 import { usersRepository } from "../users/users.repository";
-import type { CreateAvailabilityInput, ListMineQuery, UpdateAvailabilityInput } from "./availability.schemas";
+import type { CreateAvailabilityInput, ListMineQuery, SearchAvailabilityQuery, UpdateAvailabilityInput } from "./availability.schemas";
 import { availabilityService } from "./availability.service";
 
 function authenticatedUserId(req: Request): string {
@@ -23,6 +23,14 @@ export const availabilityController = {
       usersRepository,
     );
     res.status(201).json({ data: { availability: slot } });
+  }),
+
+  search: asyncHandler(async (req: Request, res: Response) => {
+    const page = await availabilityService.searchAvailable(
+      req.query as unknown as SearchAvailabilityQuery,
+      availabilityRepository,
+    );
+    res.status(200).json({ data: page });
   }),
 
   listMine: asyncHandler(async (req: Request, res: Response) => {

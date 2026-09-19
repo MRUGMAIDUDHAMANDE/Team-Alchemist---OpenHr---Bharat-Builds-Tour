@@ -88,8 +88,36 @@ export const listMineQuerySchema = z
     message: "To time must be after from time.",
   });
 
+const searchSkillsSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return undefined;
+    if (typeof value === "string") return value.split(",");
+    return value;
+  },
+  z.array(skillSchema).max(8, "Provide at most 8 skills.").transform((values) => normalizeSkills(values)).optional(),
+);
+
+export const searchAvailabilityQuerySchema = z
+  .object({
+    skills: searchSkillsSchema,
+    location: z.string().trim().min(2, "Location must be at least 2 characters").max(120, "Location must be at most 120 characters").optional(),
+    mode: modeSchema.default("ANY"),
+    from: isoDateTime("From time").optional(),
+    to: isoDateTime("To time").optional(),
+    maxHourlyRate: z.coerce.number().int("Maximum rate must be a whole number").positive("Maximum rate must be greater than zero").max(1000000, "Maximum rate must be at most 1000000").optional(),
+    minRating: z.coerce.number().min(0, "Minimum rating cannot be negative").max(5, "Minimum rating must be at most 5").optional(),
+    limit: z.coerce.number().int("Limit must be a whole number").min(1, "Limit must be at least 1").max(50, "Limit must be at most 50").default(20),
+    cursor: z.string().trim().min(1, "Cursor must not be blank").max(4096, "Cursor is too long").optional(),
+  })
+  .strict()
+  .refine((value) => !value.from || !value.to || Date.parse(value.to) > Date.parse(value.from), {
+    path: ["to"],
+    message: "To time must be after from time.",
+  });
+
 export type CreateAvailabilityInput = Omit<z.infer<typeof createAvailabilitySchema>, "availabilityId" | "publisherId" | "status" | "createdAt" | "updatedAt">;
 export type UpdateAvailabilityInput = z.infer<typeof updateAvailabilitySchema>;
 export type AvailabilityIdParams = z.infer<typeof availabilityIdParamsSchema>;
 export type ListMineQuery = z.infer<typeof listMineQuerySchema>;
+export type SearchAvailabilityQuery = z.infer<typeof searchAvailabilityQuerySchema>;
 export type AvailabilityRecord = AvailabilitySlot;
