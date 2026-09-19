@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ClockIcon, MapPinIcon, WifiIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,8 @@ export interface AvailabilityCardProps {
   hourlyRate: number;
   window: string;
   skills?: string[];
-  status?: "AVAILABLE" | "BOOKED";
+  status?: "AVAILABLE" | "BOOKED" | "CANCELLED" | "EXPIRED";
+  footer?: ReactNode;
   className?: string;
 }
 
@@ -18,6 +20,20 @@ const modeLabels: Record<AvailabilityCardProps["mode"], string> = {
   ONLINE: "Online",
   IN_PERSON: "In person",
   ANY: "Online or in person",
+};
+
+const statusLabels: Record<NonNullable<AvailabilityCardProps["status"]>, string> = {
+  AVAILABLE: "Available",
+  BOOKED: "Booked",
+  CANCELLED: "Cancelled",
+  EXPIRED: "Expired",
+};
+
+const statusVariants: Record<NonNullable<AvailabilityCardProps["status"]>, "secondary" | "outline" | "destructive"> = {
+  AVAILABLE: "secondary",
+  BOOKED: "outline",
+  CANCELLED: "destructive",
+  EXPIRED: "outline",
 };
 
 export function AvailabilityCard({
@@ -29,6 +45,7 @@ export function AvailabilityCard({
   window,
   skills = [],
   status = "AVAILABLE",
+  footer,
   className,
 }: AvailabilityCardProps) {
   const initials = name
@@ -51,9 +68,7 @@ export function AvailabilityCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <h3 className="truncate text-sm font-medium">{name}</h3>
-            <Badge variant={status === "AVAILABLE" ? "secondary" : "outline"}>
-              {status === "AVAILABLE" ? "Available" : "Booked"}
-            </Badge>
+            <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>
           </div>
           <p className="truncate text-sm text-muted-foreground">{headline}</p>
         </div>
@@ -83,6 +98,8 @@ export function AvailabilityCard({
           ))}
         </div>
       ) : null}
+
+      {footer ? <div className="flex flex-wrap gap-2">{footer}</div> : null}
 
       <div className="mt-auto flex items-baseline justify-between border-t pt-3">
         <span className="text-base font-semibold">₹{hourlyRate.toLocaleString("en-IN")}</span>

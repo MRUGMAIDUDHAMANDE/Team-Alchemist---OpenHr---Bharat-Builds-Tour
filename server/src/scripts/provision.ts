@@ -36,6 +36,7 @@ import "dotenv/config";
 
 const region = process.env.AWS_REGION ?? "ap-south-1";
 const usersTable = process.env.DYNAMODB_USERS_TABLE ?? "openhr-users";
+const availabilityTable = process.env.DYNAMODB_AVAILABILITY_TABLE ?? "openhr-availability";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
 
 const cognito = new CognitoIdentityProviderClient({ region });
@@ -170,6 +171,60 @@ async function ensureUsersTable(): Promise<string> {
   return usersTable;
 }
 
+async function ensureAvailabilityTable(): Promise<string> {
+  try {
+    await dynamo.send(new DescribeTableCommand({ TableName: availabilityTable }));
+    log("DynamoDB table already exists", availabilityTable);
+    return availabilityTable;
+  } catch (error) {
+    if (error instanceof Error && error.name !== "ResourceNotFoundException") {
+      throw error;
+    }
+  }
+
+  await dynamo.send(
+    new CreateTableCommand({
+      TableName: availabilityTable,
+      BillingMode: "PAY_PER_REQUEST",
+      AttributeDefinitions: [
+        { AttributeName: "availabilityId", AttributeType: "S" },
+        { AttributeName: "publisherId", AttributeType: "S" },
+        { AttributeName: "startTime", AttributeType: "S" },
+        { AttributeName: "status", AttributeType: "S" },
+      ],
+      KeySchema: [{ AttributeName: "availabilityId", KeyType: "HASH" }],
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: "publisher-time-index",
+          KeySchema: [
+            { AttributeName: "publisherId", KeyType: "HASH" },
+            { AttributeName: "startTime", KeyType: "RANGE" },
+          ],
+          Projection: { ProjectionType: "ALL" },
+        },
+        {
+          IndexName: "status-time-index",
+          KeySchema: [
+            { AttributeName: "status", KeyType: "HASH" },
+            { AttributeName: "startTime", KeyType: "RANGE" },
+          ],
+          Projection: { ProjectionType: "ALL" },
+        },
+      ],
+      Tags: [{ Key: "Project", Value: "OpenHR" }],
+    }),
+  );
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const described = await dynamo.send(new DescribeTableCommand({ TableName: availabilityTable }));
+    if (described.Table?.TableStatus === "ACTIVE") break;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  log("DynamoDB table created", availabilityTable);
+  return availabilityTable;
+}
+
 async function ensureMediaBucket(): Promise<string | null> {
   if (!bucketName) {
     log("S3 bucket skipped", "Set S3_BUCKET_NAME to provision one.");
@@ -248,6 +303,7 @@ async function main() {
 
   const { userPoolId, clientId } = await ensureUserPool();
   const table = await ensureUsersTable();
+  const slots = await ensureAvailabilityTable();
   const bucket = await ensureMediaBucket();
 
   console.log("\n────────────────────────────────────────────────────────────");
@@ -257,6 +313,7 @@ async function main() {
   console.log(`COGNITO_USER_POOL_ID=${userPoolId}`);
   console.log(`COGNITO_CLIENT_ID=${clientId}`);
   console.log(`DYNAMODB_USERS_TABLE=${table}`);
+  console.log(`DYNAMODB_AVAILABILITY_TABLE=${slots}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);
   console.log(`S3_REGION=${region}`);
   console.log("────────────────────────────────────────────────────────────");

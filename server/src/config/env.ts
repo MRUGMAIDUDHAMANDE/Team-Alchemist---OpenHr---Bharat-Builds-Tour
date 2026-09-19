@@ -34,6 +34,8 @@ const envSchema = z.object({
 
   /** DynamoDB table that stores user profiles. */
   DYNAMODB_USERS_TABLE: z.string().default("openhr-users"),
+  /** DynamoDB table that stores availability slots. */
+  DYNAMODB_AVAILABILITY_TABLE: z.string().default("openhr-availability"),
 
   /** Amazon S3 bucket for private media (wired up in a later milestone). */
   S3_BUCKET_NAME: z.string().optional(),

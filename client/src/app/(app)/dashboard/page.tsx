@@ -40,7 +40,7 @@ export default function DashboardPage() {
           Welcome back, {firstName}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Finish your profile, then publish availability when that milestone lands.
+          Finish your profile, then publish the hours when seekers can request you.
         </p>
       </div>
 
@@ -71,11 +71,14 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-5 border-t pt-4">
+          <div className="mt-5 flex flex-wrap gap-2 border-t pt-4">
             <Button size="sm" asChild>
               <Link href={profileComplete ? `/u/${user.userId}` : "/profile/edit"}>
                 {profileComplete ? "View public profile" : "Edit profile"}
               </Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/availability">Manage availability</Link>
             </Button>
           </div>
         </section>

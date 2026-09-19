@@ -23,11 +23,11 @@ interface NavItem {
 const primaryNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/profile", label: "Profile", icon: UserRoundIcon },
+  { href: "/availability", label: "My availability", icon: CalendarRangeIcon },
 ];
 
 const upcomingNav: NavItem[] = [
   { label: "Explore", icon: SearchIcon },
-  { label: "My availability", icon: CalendarRangeIcon },
   { label: "Requests", icon: InboxIcon },
   { label: "Bookings", icon: CalendarCheckIcon },
   { label: "Notifications", icon: BellIcon },
