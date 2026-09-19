@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/client";
+import { feeBreakdown, publicSettingsApi } from "@/lib/admin/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { bookingsApi, reviewsApi } from "@/lib/marketplace/api";
 import type { Booking } from "@/lib/marketplace/types";
@@ -31,6 +32,24 @@ export default function BookingsPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
+  const [commission, setCommission] = useState<{ buyer: number; seller: number } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    publicSettingsApi
+      .commission()
+      .then(({ settings }) => {
+        if (active) setCommission({ buyer: settings.buyerCommissionPercent, seller: settings.sellerCommissionPercent });
+      })
+      .catch(() => {
+        // Fee lines stay hidden when settings cannot load.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -168,6 +187,7 @@ export default function BookingsPage() {
               key={booking.bookingId}
               booking={booking}
               role={role}
+              commission={commission}
               acting={actingId === booking.bookingId}
               onStart={() => act(booking.bookingId, "start", "Service started")}
               onComplete={() => act(booking.bookingId, "complete", "Booking completed")}
@@ -195,6 +215,7 @@ export default function BookingsPage() {
 function BookingRow({
   booking,
   role,
+  commission,
   acting,
   onStart,
   onComplete,
@@ -203,12 +224,17 @@ function BookingRow({
 }: {
   booking: Booking;
   role: Role;
+  commission: { buyer: number; seller: number } | null;
   acting: boolean;
   onStart: () => void;
   onComplete: () => void;
   onCancel: () => void;
   onReview: () => void;
 }) {
+  const fees = commission
+    ? feeBreakdown(booking.totalAmount, commission.buyer, commission.seller)
+    : null;
+
   return (
     <li className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -222,11 +248,20 @@ function BookingRow({
         </div>
         <BookingStatusBadge status={booking.status} />
       </div>
-      <div className="mt-3 flex items-baseline justify-between border-t pt-3 text-sm">
-        <span className="text-muted-foreground">
-          ₹{booking.hourlyRate.toLocaleString("en-IN")}/hour
-        </span>
-        <span className="font-semibold">Total ₹{booking.totalAmount.toLocaleString("en-IN")}</span>
+      <div className="mt-3 space-y-1 border-t pt-3 text-sm">
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted-foreground">
+            ₹{booking.hourlyRate.toLocaleString("en-IN")}/hour
+          </span>
+          <span className="font-semibold">Total ₹{booking.totalAmount.toLocaleString("en-IN")}</span>
+        </div>
+        {fees ? (
+          <p className="text-xs text-muted-foreground">
+            {role === "publisher"
+              ? `You receive ₹${fees.sellerPayout.toLocaleString("en-IN")} after a ₹${fees.sellerFee.toLocaleString("en-IN")} platform fee.`
+              : `You pay ₹${fees.buyerTotal.toLocaleString("en-IN")}, including a ₹${fees.buyerFee.toLocaleString("en-IN")} platform fee.`}
+          </p>
+        ) : null}
       </div>
 
       {booking.status === "CONFIRMED" && role === "publisher" ? (

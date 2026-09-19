@@ -3,6 +3,7 @@ import { asyncHandler } from "../../lib/async-handler";
 import { AppError } from "../../lib/errors";
 import { bookingsRepository } from "../bookings/bookings.repository";
 import { emitNotification } from "../notifications/events";
+import { reportsRepository } from "../reports/reports.repository";
 import { usersRepository } from "../users/users.repository";
 import { reviewsRepository } from "./reviews.repository";
 import type { CreateReviewInput, ListReviewsQuery } from "./reviews.schemas";
@@ -24,6 +25,7 @@ export const reviewsController = {
       reviewsRepository,
       bookingsRepository,
       usersRepository,
+      reportsRepository,
     );
     await emitNotification({
       userId: review.revieweeId,

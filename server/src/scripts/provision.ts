@@ -43,6 +43,8 @@ const bookingsTable = process.env.DYNAMODB_BOOKINGS_TABLE ?? "openhr-bookings";
 const reviewsTable = process.env.DYNAMODB_REVIEWS_TABLE ?? "openhr-reviews";
 const mediaTable = process.env.DYNAMODB_MEDIA_TABLE ?? "openhr-media";
 const contactTable = process.env.DYNAMODB_CONTACT_TABLE ?? "openhr-contact";
+const settingsTable = process.env.DYNAMODB_SETTINGS_TABLE ?? "openhr-settings";
+const reportsTable = process.env.DYNAMODB_REPORTS_TABLE ?? "openhr-reports";
 const notificationsTable = process.env.DYNAMODB_NOTIFICATIONS_TABLE ?? "openhr-notifications";
 const notificationEmail = process.env.NOTIFICATION_EMAIL ?? "";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
@@ -380,6 +382,32 @@ async function ensureContactTable(): Promise<string> {
   );
 }
 
+async function ensureSettingsTable(): Promise<string> {
+  return ensureTable(
+    settingsTable,
+    ["settingKey"],
+    [{ AttributeName: "settingKey", KeyType: "HASH" }],
+    [],
+  );
+}
+
+async function ensureReportsTable(): Promise<string> {
+  return ensureTable(
+    reportsTable,
+    ["reportId", "status", "createdAt"],
+    [{ AttributeName: "reportId", KeyType: "HASH" }],
+    [
+      {
+        IndexName: "status-index",
+        Keys: [
+          { AttributeName: "status", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+    ],
+  );
+}
+
 async function ensureNotificationsTable(): Promise<string> {
   return ensureTable(
     notificationsTable,
@@ -498,6 +526,8 @@ async function main() {
   const reviews = await ensureReviewsTable();
   const media = await ensureMediaTable();
   const contact = await ensureContactTable();
+  const settings = await ensureSettingsTable();
+  const reports = await ensureReportsTable();
   const notifications = await ensureNotificationsTable();
   const topicArn = await ensureEventsTopic();
   const bucket = await ensureMediaBucket();
@@ -515,6 +545,8 @@ async function main() {
   console.log(`DYNAMODB_REVIEWS_TABLE=${reviews}`);
   console.log(`DYNAMODB_MEDIA_TABLE=${media}`);
   console.log(`DYNAMODB_CONTACT_TABLE=${contact}`);
+  console.log(`DYNAMODB_SETTINGS_TABLE=${settings}`);
+  console.log(`DYNAMODB_REPORTS_TABLE=${reports}`);
   console.log(`DYNAMODB_NOTIFICATIONS_TABLE=${notifications}`);
   console.log(`SNS_TOPIC_ARN=${topicArn}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);

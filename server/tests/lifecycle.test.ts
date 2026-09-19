@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { bookingsService, type BookingStore } from "../src/modules/bookings/bookings.service";
+import type { FlagStore } from "../src/modules/reviews/reviews.service";
 import { reviewsService, type ReviewedBookingStore, type ReviewStore, type RevieweeDirectory } from "../src/modules/reviews/reviews.service";
 import { createReviewSchema, listReviewsQuerySchema } from "../src/modules/reviews/reviews.schemas";
 import { isAppError } from "../src/lib/errors";
@@ -112,7 +113,23 @@ function createReviewDeps(options: {
       return options.users?.[userId] ?? null;
     },
   };
-  return { reviewStore, bookingStore, userStore, ratingCalls };
+  const flagged: Array<unknown> = [];
+  const flagStore: FlagStore = {
+    async create(report: never) {
+      flagged.push(report);
+      return report;
+    },
+    async getById() {
+      return null;
+    },
+    async listByStatus() {
+      return { items: [] };
+    },
+    async setStatus() {
+      throw new Error("unreachable");
+    },
+  };
+  return { reviewStore, bookingStore, userStore, flagStore, flagged, ratingCalls };
 }
 
 const completedBooking: Booking = { ...booking, status: "COMPLETED" };
@@ -192,6 +209,7 @@ describe("reviewsService.createReview", () => {
       deps.reviewStore,
       deps.bookingStore,
       deps.userStore,
+      deps.flagStore,
     );
 
     assert.equal(review.reviewId, "rv_req-1_seeker-1");
@@ -204,7 +222,7 @@ describe("reviewsService.createReview", () => {
   it("rejects reviews on incomplete bookings", async () => {
     const deps = createReviewDeps({ booking, users });
     await assert.rejects(
-      reviewsService.createReview("seeker-1", { bookingId: "bk_req-1", rating: 5, text: "Great" }, deps.reviewStore, deps.bookingStore, deps.userStore),
+      reviewsService.createReview("seeker-1", { bookingId: "bk_req-1", rating: 5, text: "Great" }, deps.reviewStore, deps.bookingStore, deps.userStore, deps.flagStore),
       (error: unknown) => isAppError(error) && error.status === 409,
     );
   });
@@ -212,7 +230,7 @@ describe("reviewsService.createReview", () => {
   it("hides bookings from outsiders", async () => {
     const deps = createReviewDeps({ booking: completedBooking, users });
     await assert.rejects(
-      reviewsService.createReview("stranger", { bookingId: "bk_req-1", rating: 5, text: "Great" }, deps.reviewStore, deps.bookingStore, deps.userStore),
+      reviewsService.createReview("stranger", { bookingId: "bk_req-1", rating: 5, text: "Great" }, deps.reviewStore, deps.bookingStore, deps.userStore, deps.flagStore),
       (error: unknown) => isAppError(error) && error.status === 404,
     );
   });
@@ -230,7 +248,7 @@ describe("reviewsService.createReview", () => {
     };
     const deps = createReviewDeps({ booking: completedBooking, users, existing });
     await assert.rejects(
-      reviewsService.createReview("seeker-1", { bookingId: "bk_req-1", rating: 4, text: "Again" }, deps.reviewStore, deps.bookingStore, deps.userStore),
+      reviewsService.createReview("seeker-1", { bookingId: "bk_req-1", rating: 4, text: "Again" }, deps.reviewStore, deps.bookingStore, deps.userStore, deps.flagStore),
       (error: unknown) => isAppError(error) && error.status === 409,
     );
     assert.equal(deps.ratingCalls.length, 0);
@@ -248,6 +266,7 @@ describe("reviewsService.createReview", () => {
       deps.reviewStore,
       deps.bookingStore,
       deps.userStore,
+      deps.flagStore,
     );
     assert.equal(review.reviewId, "rv_req-1_seeker-1");
     assert.equal(deps.ratingCalls.length, 2);

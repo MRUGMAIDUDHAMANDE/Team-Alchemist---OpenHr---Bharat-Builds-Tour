@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { bookingsService, type BookingStore } from "../src/modules/bookings/bookings.service";
-import { computeTotal, requestsService, type RequestStore, type SeekerDirectory, type SlotDirectory } from "../src/modules/requests/requests.service";
+import { computeTotal, requestsService, type FlagStore, type RequestStore, type SeekerDirectory, type SlotDirectory } from "../src/modules/requests/requests.service";
 import { createRequestSchema, listRequestsQuerySchema } from "../src/modules/requests/requests.schemas";
 import { isAppError } from "../src/lib/errors";
 import type { AvailabilitySlot } from "../src/modules/availability/availability.types";
@@ -125,6 +125,26 @@ function createSeekerStore(current: UserProfile | null = profile): SeekerDirecto
   };
 }
 
+function createFlagStore() {
+  const flagged: Array<unknown> = [];
+  const store: FlagStore = {
+    async create(report: never) {
+      flagged.push(report);
+      return report;
+    },
+    async getById() {
+      return null;
+    },
+    async listByStatus() {
+      return { items: [] };
+    },
+    async setStatus() {
+      throw new Error("unreachable");
+    },
+  };
+  return { store, flagged };
+}
+
 function createBookingStore(bookings: Booking[] = []): BookingStore {
   return {
     async getById(bookingId: string) {
@@ -142,12 +162,14 @@ function createBookingStore(bookings: Booking[] = []): BookingStore {
 describe("requestsService.createRequest", () => {
   it("creates a pending request with the seeker's name", async () => {
     const requests = createRequestStore();
+    const flags = createFlagStore();
     const result = await requestsService.createRequest(
       "seeker-1",
       { availabilityId: "slot-1", message: "Need help debugging." },
       requests.store,
       createSlotStore(),
       createSeekerStore(),
+      flags.store,
       NOW,
     );
 
@@ -157,10 +179,28 @@ describe("requestsService.createRequest", () => {
     assert.equal(requests.created.length, 1);
   });
 
+  it("flags a request carrying contact details", async () => {
+    const requests = createRequestStore();
+    const flags = createFlagStore();
+    await requestsService.createRequest(
+      "seeker-1",
+      { availabilityId: "slot-1", message: "Call me on 98765 43210, let's skip the platform." },
+      requests.store,
+      createSlotStore(),
+      createSeekerStore(),
+      flags.store,
+      NOW,
+    );
+
+    assert.equal(flags.flagged.length, 1);
+    assert.ok(flags.flagged[0].findings.some((finding) => finding.type === "PHONE"));
+    assert.equal(requests.created.length, 1);
+  });
+
   it("rejects self-requests", async () => {
     const requests = createRequestStore();
     await assert.rejects(
-      requestsService.createRequest("publisher-1", { availabilityId: "slot-1", message: "Hi" }, requests.store, createSlotStore(), createSeekerStore(), NOW),
+      requestsService.createRequest("publisher-1", { availabilityId: "slot-1", message: "Hi" }, requests.store, createSlotStore(), createSeekerStore(), createFlagStore().store, NOW),
       (error: unknown) => isAppError(error) && error.status === 403,
     );
     assert.equal(requests.created.length, 0);
@@ -169,7 +209,7 @@ describe("requestsService.createRequest", () => {
   it("rejects requests on booked slots", async () => {
     const requests = createRequestStore();
     await assert.rejects(
-      requestsService.createRequest("seeker-1", { availabilityId: "slot-1", message: "Hi" }, requests.store, createSlotStore({ ...slot, status: "BOOKED" }), createSeekerStore(), NOW),
+      requestsService.createRequest("seeker-1", { availabilityId: "slot-1", message: "Hi" }, requests.store, createSlotStore({ ...slot, status: "BOOKED" }), createSeekerStore(), createFlagStore().store, NOW),
       (error: unknown) => isAppError(error) && error.status === 409,
     );
   });
@@ -177,7 +217,7 @@ describe("requestsService.createRequest", () => {
   it("rejects duplicate pending requests from the same seeker", async () => {
     const requests = createRequestStore({ requests: [pendingRequest()] });
     await assert.rejects(
-      requestsService.createRequest("seeker-1", { availabilityId: "slot-1", message: "Hi again" }, requests.store, createSlotStore(), createSeekerStore(), NOW),
+      requestsService.createRequest("seeker-1", { availabilityId: "slot-1", message: "Hi again" }, requests.store, createSlotStore(), createSeekerStore(), createFlagStore().store, NOW),
       (error: unknown) => isAppError(error) && error.status === 409,
     );
   });

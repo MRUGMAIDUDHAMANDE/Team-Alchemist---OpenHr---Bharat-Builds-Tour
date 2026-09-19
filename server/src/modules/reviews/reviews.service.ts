@@ -1,6 +1,8 @@
 import { AppError } from "../../lib/errors";
 import { decodePageCursor, encodePageCursor } from "../availability/availability.pagination";
 import type { bookingsRepository } from "../bookings/bookings.repository";
+import type { reportsRepository } from "../reports/reports.repository";
+import { reportsService } from "../reports/reports.service";
 import type { usersRepository } from "../users/users.repository";
 import type { reviewsRepository } from "./reviews.repository";
 import type { CreateReviewInput, ListReviewsQuery } from "./reviews.schemas";
@@ -9,6 +11,7 @@ import type { Review } from "./reviews.types";
 export type ReviewStore = Pick<typeof reviewsRepository, "getById" | "listByReviewee" | "listByBooking" | "createWithRating">;
 export type ReviewedBookingStore = Pick<typeof bookingsRepository, "getById">;
 export type RevieweeDirectory = Pick<typeof usersRepository, "getById">;
+export type FlagStore = Pick<typeof reportsRepository, "create" | "getById" | "listByStatus" | "setStatus">;
 
 export interface ReviewPage {
   items: Review[];
@@ -34,6 +37,7 @@ export const reviewsService = {
     reviewStore: ReviewStore,
     bookingStore: ReviewedBookingStore,
     userStore: RevieweeDirectory,
+    flagStore: FlagStore,
   ): Promise<Review> {
     const booking = await bookingStore.getById(input.bookingId);
     if (!booking || (booking.publisherId !== reviewerId && booking.seekerId !== reviewerId)) {
@@ -84,6 +88,7 @@ export const reviewsService = {
           newSum: sum,
           timestamp,
         });
+        await reportsService.flagIfSuspicious("REVIEW_TEXT", review.reviewId, reviewerId, input.text, flagStore);
         return review;
       } catch (error) {
         if (!isTransactionCanceled(error)) throw error;

@@ -9,9 +9,11 @@ import {
   InboxIcon,
   LayoutDashboardIcon,
   SearchIcon,
+  ShieldCheckIcon,
   UserRoundIcon,
   type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -32,12 +34,44 @@ const primaryNav: NavItem[] = [
 
 const upcomingNav: NavItem[] = [];
 
+const adminNav: NavItem[] = [
+  { href: "/admin", label: "Administration", icon: ShieldCheckIcon },
+];
+
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string }) {
+  return (
+    <>
+      {items.map((item) => {
+        const active = item.href ? isActive(pathname, item.href) : false;
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.label}
+            href={item.href ?? "#"}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+              active
+                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+            )}
+          >
+            <Icon className="size-4" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:flex md:flex-col">
@@ -49,26 +83,14 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
-        {primaryNav.map((item) => {
-          const active = item.href ? isActive(pathname, item.href) : false;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.label}
-              href={item.href ?? "#"}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                active
-                  ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-              )}
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+        <NavLinks items={primaryNav} pathname={pathname} />
+
+        {user?.role === "ADMIN" ? (
+          <>
+            <p className="mt-4 px-2.5 text-xs text-muted-foreground">Administration</p>
+            <NavLinks items={adminNav} pathname={pathname} />
+          </>
+        ) : null}
 
         {upcomingNav.length > 0 ? (
           <>

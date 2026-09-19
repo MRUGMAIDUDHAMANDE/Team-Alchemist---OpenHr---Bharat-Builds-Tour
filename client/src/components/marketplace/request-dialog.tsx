@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/client";
+import { feeBreakdown, publicSettingsApi } from "@/lib/admin/api";
 import { requestsApi } from "@/lib/marketplace/api";
 import { formatSlotWindow } from "@/lib/availability/format";
 import type { AvailabilitySlot } from "@/lib/availability/types";
@@ -36,6 +37,25 @@ interface RequestDialogProps {
 
 export function RequestDialog({ slot, onClose, onSent }: RequestDialogProps) {
   const [formError, setFormError] = useState<string | null>(null);
+  const [buyerPercent, setBuyerPercent] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!slot) return;
+    let active = true;
+
+    publicSettingsApi
+      .commission()
+      .then(({ settings }) => {
+        if (active) setBuyerPercent(settings.buyerCommissionPercent);
+      })
+      .catch(() => {
+        if (active) setBuyerPercent(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [slot]);
   const form = useForm<MessageValues>({
     resolver: zodResolver(messageSchema),
     defaultValues: { message: "" },
@@ -57,6 +77,15 @@ export function RequestDialog({ slot, onClose, onSent }: RequestDialogProps) {
   });
 
   const submitting = form.formState.isSubmitting;
+
+  const estimate =
+    slot && buyerPercent !== null
+      ? (() => {
+          const minutes = (Date.parse(slot.endTime) - Date.parse(slot.startTime)) / 60000;
+          const total = Math.round(slot.hourlyRate * (minutes / 60) * 100) / 100;
+          return feeBreakdown(total, buyerPercent, 0);
+        })()
+      : null;
 
   return (
     <Dialog
@@ -86,6 +115,12 @@ export function RequestDialog({ slot, onClose, onSent }: RequestDialogProps) {
             error={form.formState.errors.message?.message}
             {...form.register("message")}
           />
+          {estimate ? (
+            <p className="text-xs text-muted-foreground">
+              Estimated ₹{estimate.buyerTotal.toLocaleString("en-IN")} if accepted, including a
+              ₹{estimate.buyerFee.toLocaleString("en-IN")} platform fee.
+            </p>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
               Cancel

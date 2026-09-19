@@ -1,4 +1,4 @@
-import { GetCommand, QueryCommand, UpdateCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, ScanCommand, UpdateCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../aws/clients";
 import { env } from "../../config/env";
 import type { Booking, BookingStatus } from "./bookings.types";
@@ -67,6 +67,13 @@ export const bookingsRepository = {
 
   async listBySeeker(seekerId: string, limit: number, exclusiveStartKey?: Record<string, unknown>): Promise<BookingListResult> {
     return queryByOwner(BOOKING_SEEKER_INDEX, "seekerId", seekerId, limit, exclusiveStartKey);
+  },
+
+  async listAll(limit: number): Promise<Booking[]> {
+    const result = await ddb.send(
+      new ScanCommand({ TableName: env.DYNAMODB_BOOKINGS_TABLE, Limit: limit }),
+    );
+    return (result.Items as Booking[] | undefined) ?? [];
   },
 
   async transitionBooking(bookingId: string, from: BookingStatus[], to: BookingStatus, extra?: { cancelReason?: string }): Promise<Booking> {

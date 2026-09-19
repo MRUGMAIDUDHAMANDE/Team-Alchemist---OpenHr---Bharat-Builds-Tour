@@ -4,6 +4,8 @@ import { decodePageCursor, encodePageCursor } from "../availability/availability
 import type { AvailabilitySlot } from "../availability/availability.types";
 import type { availabilityRepository } from "../availability/availability.repository";
 import type { Booking } from "../bookings/bookings.types";
+import type { reportsRepository } from "../reports/reports.repository";
+import { reportsService } from "../reports/reports.service";
 import type { usersRepository } from "../users/users.repository";
 import type { UserProfile } from "../users/users.types";
 import type { requestsRepository } from "./requests.repository";
@@ -13,6 +15,7 @@ import type { BookingRequest } from "./requests.types";
 export type RequestStore = Pick<typeof requestsRepository, "create" | "getById" | "listByAvailability" | "listBySeeker" | "listByPublisher" | "transitionStatus" | "acceptAtomic">;
 export type SlotDirectory = Pick<typeof availabilityRepository, "getById">;
 export type SeekerDirectory = Pick<typeof usersRepository, "getById">;
+export type FlagStore = Pick<typeof reportsRepository, "create" | "getById" | "listByStatus" | "setStatus">;
 
 export interface RequestPage {
   items: BookingRequest[];
@@ -77,6 +80,7 @@ export const requestsService = {
     requestStore: RequestStore,
     slotStore: SlotDirectory,
     seekerStore: SeekerDirectory,
+    flagStore: FlagStore,
     now: number = Date.now(),
   ): Promise<BookingRequest> {
     const slot = await slotStore.getById(input.availabilityId);
@@ -107,7 +111,7 @@ export const requestsService = {
     }
 
     const timestamp = new Date().toISOString();
-    return requestStore.create({
+    const created = await requestStore.create({
       requestId: randomUUID(),
       availabilityId: slot.availabilityId,
       publisherId: slot.publisherId,
@@ -124,6 +128,9 @@ export const requestsService = {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
+
+    await reportsService.flagIfSuspicious("REQUEST_MESSAGE", created.requestId, seekerId, input.message, flagStore);
+    return created;
   },
 
   async listMine(userId: string, query: ListRequestsQuery, store: RequestStore): Promise<RequestPage> {

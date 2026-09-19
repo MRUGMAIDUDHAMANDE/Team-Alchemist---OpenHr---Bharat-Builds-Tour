@@ -218,6 +218,14 @@ export const authService = {
       name: idClaims.name ?? input.email.split("@")[0],
     });
 
+    if (profile.status === "SUSPENDED" || profile.status === "DISABLED") {
+      throw new AppError({
+        code: "ACCOUNT_DISABLED",
+        status: 403,
+        message: "This account has been suspended. Contact support for help.",
+      });
+    }
+
     return { user: toPrivateProfile(profile), tokens };
   },
 

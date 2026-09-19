@@ -109,6 +109,19 @@ export const usersRepository = {
     );
   },
 
+  async setRole(userId: string, role: "USER" | "ADMIN"): Promise<void> {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.DYNAMODB_USERS_TABLE,
+        Key: { userId },
+        UpdateExpression: "SET #role = :role, updatedAt = :updatedAt",
+        ExpressionAttributeNames: { "#role": "role" },
+        ExpressionAttributeValues: { ":role": role, ":updatedAt": nowIso() },
+        ConditionExpression: "attribute_exists(userId)",
+      }),
+    );
+  },
+
   async setStatus(userId: string, status: UserStatus): Promise<void> {
     await ddb.send(
       new UpdateCommand({

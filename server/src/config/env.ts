@@ -46,6 +46,10 @@ const envSchema = z.object({
   DYNAMODB_MEDIA_TABLE: z.string().default("openhr-media"),
   /** DynamoDB table that stores contact submissions. */
   DYNAMODB_CONTACT_TABLE: z.string().default("openhr-contact"),
+  /** DynamoDB table that stores platform settings. */
+  DYNAMODB_SETTINGS_TABLE: z.string().default("openhr-settings"),
+  /** DynamoDB table that stores moderation reports. */
+  DYNAMODB_REPORTS_TABLE: z.string().default("openhr-reports"),
   /** DynamoDB table that stores in-app notifications. */
   DYNAMODB_NOTIFICATIONS_TABLE: z.string().default("openhr-notifications"),
   /** Amazon SNS topic for event fan-out. Empty disables SNS delivery. */

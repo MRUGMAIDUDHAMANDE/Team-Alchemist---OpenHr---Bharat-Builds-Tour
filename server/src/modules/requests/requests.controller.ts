@@ -4,6 +4,7 @@ import { AppError } from "../../lib/errors";
 import { availabilityRepository } from "../availability/availability.repository";
 import { usersRepository } from "../users/users.repository";
 import { emitNotification } from "../notifications/events";
+import { reportsRepository } from "../reports/reports.repository";
 import { requestsRepository } from "./requests.repository";
 import type { CreateRequestInput, ListRequestsQuery } from "./requests.schemas";
 import { requestsService } from "./requests.service";
@@ -24,6 +25,7 @@ export const requestsController = {
       requestsRepository,
       availabilityRepository,
       usersRepository,
+      reportsRepository,
     );
     await emitNotification({
       userId: request.publisherId,

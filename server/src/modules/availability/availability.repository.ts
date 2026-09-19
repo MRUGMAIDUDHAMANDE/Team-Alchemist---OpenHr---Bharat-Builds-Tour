@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../aws/clients";
 import { env } from "../../config/env";
 import type { AvailabilitySlot, AvailabilityStatus } from "./availability.types";
@@ -121,6 +121,13 @@ export const availabilityRepository = {
       items: (result.Items as AvailabilitySlot[] | undefined) ?? [],
       lastKey: result.LastEvaluatedKey as Record<string, unknown> | undefined,
     };
+  },
+
+  async listAll(limit: number): Promise<AvailabilitySlot[]> {
+    const result = await ddb.send(
+      new ScanCommand({ TableName: env.DYNAMODB_AVAILABILITY_TABLE, Limit: limit }),
+    );
+    return (result.Items as AvailabilitySlot[] | undefined) ?? [];
   },
 
   async updateOwned(availabilityId: string, publisherId: string, update: AvailabilityUpdate): Promise<AvailabilitySlot> {
