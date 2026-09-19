@@ -43,6 +43,10 @@ const envSchema = z.object({
   /** DynamoDB table that stores booking reviews. */
   DYNAMODB_REVIEWS_TABLE: z.string().default("openhr-reviews"),
 
+  /** Amazon Bedrock inference profile used only for search assistance. */
+  BEDROCK_MODEL_ID: z.string().default("apac.amazon.nova-micro-v1:0"),
+  BEDROCK_REGION: z.string().optional(),
+
   /** Amazon S3 bucket for private media (wired up in a later milestone). */
   S3_BUCKET_NAME: z.string().optional(),
   S3_REGION: z.string().optional(),

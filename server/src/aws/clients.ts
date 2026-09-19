@@ -1,3 +1,4 @@
+import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
@@ -25,6 +26,11 @@ const baseClientConfig = {
 };
 
 export const cognitoClient = new CognitoIdentityProviderClient(baseClientConfig);
+
+export const bedrockClient = new BedrockRuntimeClient({
+  ...baseClientConfig,
+  region: env.BEDROCK_REGION ?? env.AWS_REGION,
+});
 
 const dynamoDbClient = new DynamoDBClient(baseClientConfig);
 

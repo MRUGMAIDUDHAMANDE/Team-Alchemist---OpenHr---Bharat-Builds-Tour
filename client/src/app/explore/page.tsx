@@ -6,14 +6,15 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { AvailabilityMode } from "@/lib/auth/types";
-import { availabilityApi, type SearchAvailabilityFilter } from "@/lib/availability/api";
-import { combineLocalDateTime } from "@/lib/availability/form";
+import { availabilityApi, type InterpretedFilter, type SearchAvailabilityFilter } from "@/lib/availability/api";
+import { combineLocalDateTime, toLocalDate, toLocalTime } from "@/lib/availability/form";
 import { formatSlotWindow } from "@/lib/availability/format";
 import type { AvailabilitySlot } from "@/lib/availability/types";
 import { AvailabilityCard } from "@/components/availability-card";
 import { RequestDialog } from "@/components/marketplace/request-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { FormAlert } from "@/components/form/form-alert";
 import { ModeField } from "@/components/form/mode-field";
 import { TextField } from "@/components/form/text-field";
@@ -80,6 +81,8 @@ function ExploreContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requestSlot, setRequestSlot] = useState<AvailabilitySlot | null>(null);
+  const [nlQuery, setNlQuery] = useState("");
+  const [interpreting, setInterpreting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -180,6 +183,72 @@ function ExploreContent() {
     router.replace(query ? `/explore?${query}` : "/explore", { scroll: false });
   };
 
+  const applyInterpretedFilter = (filter: InterpretedFilter) => {
+    setSkills(filter.skills?.join(", ") ?? "");
+    setLocation(filter.location ?? "");
+    setMaxRate(filter.maxHourlyRate !== undefined ? String(filter.maxHourlyRate) : "");
+    setMode(filter.mode ?? "ANY");
+    setMinRating("");
+    if (filter.from) {
+      const from = new Date(filter.from);
+      setDate(toLocalDate(from));
+      setStartTime(toLocalTime(from));
+    } else {
+      setDate("");
+      setStartTime("");
+    }
+    if (filter.to) {
+      const to = new Date(filter.to);
+      if (!filter.from) setDate(toLocalDate(to));
+      setEndTime(toLocalTime(to));
+    } else {
+      setEndTime("");
+    }
+  };
+
+  const handleInterpret = async () => {
+    if (nlQuery.trim().length < 3 || interpreting) return;
+    setInterpreting(true);
+    setError(null);
+
+    try {
+      const { filter } = await availabilityApi.interpret(nlQuery.trim());
+      applyInterpretedFilter(filter);
+      const page = await availabilityApi.search({
+        skills: filter.skills?.join(", "),
+        location: filter.location,
+        mode: filter.mode,
+        from: filter.from,
+        to: filter.to,
+        maxHourlyRate: filter.maxHourlyRate,
+        limit: 20,
+      });
+      syncUrlFromFilter(filter);
+      setItems(page.items);
+      setCursor(page.nextCursor);
+    } catch (interpretError) {
+      setError(interpretError instanceof ApiError ? interpretError.message : "Could not understand that request. Try the filters instead.");
+    } finally {
+      setInterpreting(false);
+    }
+  };
+
+  const syncUrlFromFilter = (filter: InterpretedFilter) => {
+    const params = new URLSearchParams();
+    if (filter.skills?.length) params.set("skills", filter.skills.join(", "));
+    if (filter.location) params.set("location", filter.location);
+    if (filter.maxHourlyRate !== undefined) params.set("maxRate", String(filter.maxHourlyRate));
+    if (filter.mode && filter.mode !== "ANY") params.set("mode", filter.mode);
+    if (filter.from) {
+      const from = new Date(filter.from);
+      params.set("date", toLocalDate(from));
+      params.set("from", toLocalTime(from));
+    }
+    if (filter.to) params.set("to", toLocalTime(new Date(filter.to)));
+    const query = params.toString();
+    router.replace(query ? `/explore?${query}` : "/explore", { scroll: false });
+  };
+
   const handleSearch = async () => {
     setError(null);
     const filter = buildFilter();
@@ -261,6 +330,28 @@ function ExploreContent() {
             Search people who are free when you need them. Results show soonest available slots first.
           </p>
         </div>
+
+        <section className="space-y-3 rounded-xl bg-card p-5 ring-1 ring-foreground/10">
+          <div className="space-y-1.5">
+            <Label htmlFor="explore-nl">Describe what you need</Label>
+            <Textarea
+              id="explore-nl"
+              rows={2}
+              placeholder="I need someone in Pune today from 4 to 6 PM who can fix my React app under ₹800 per hour."
+              value={nlQuery}
+              onChange={(event) => setNlQuery(event.target.value)}
+              disabled={interpreting || loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              AI fills the filters below from your description. Booking decisions always stay with you.
+            </p>
+          </div>
+          <div>
+            <Button size="sm" onClick={handleInterpret} disabled={interpreting || loading || nlQuery.trim().length < 3}>
+              {interpreting ? "Understanding…" : "Understand and search"}
+            </Button>
+          </div>
+        </section>
 
         <section className="space-y-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

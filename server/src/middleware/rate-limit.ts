@@ -22,6 +22,22 @@ export const authRateLimiter = rateLimit({
   },
 });
 
+export const aiRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: (_req, _res, next) => {
+    next(
+      new AppError({
+        code: "RATE_LIMITED",
+        status: 429,
+        message: "AI matching quota exhausted for now. Use the filters instead.",
+      }),
+    );
+  },
+});
+
 export const generalRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 120,

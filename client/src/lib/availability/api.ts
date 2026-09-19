@@ -29,7 +29,36 @@ function mineQuery(filter: MineAvailabilityFilter): string {
   return query ? `/availability/mine?${query}` : "/availability/mine";
 }
 
+export interface InterpretedFilter {
+  skills?: string[];
+  location?: string;
+  from?: string;
+  to?: string;
+  maxHourlyRate?: number;
+  mode?: "ONLINE" | "IN_PERSON" | "ANY";
+}
+
+export interface InterpretedSearch {
+  requirements: {
+    skills: string[];
+    location: string | null;
+    date: string | null;
+    startTime: string | null;
+    endTime: string | null;
+    maxHourlyRate: number | null;
+    mode: "ONLINE" | "IN_PERSON" | "ANY";
+  };
+  filter: InterpretedFilter;
+}
+
 export const availabilityApi = {
+  interpret(query: string) {
+    return apiRequest<InterpretedSearch>("/search/interpret", {
+      method: "POST",
+      body: { query },
+    });
+  },
+
   search(filter: SearchAvailabilityFilter = {}) {
     const params = new URLSearchParams();
     if (filter.skills) params.set("skills", filter.skills);

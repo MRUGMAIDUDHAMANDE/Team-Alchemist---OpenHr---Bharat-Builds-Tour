@@ -8,6 +8,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { usersRouter } from "./modules/users/users.routes";
 import { availabilityRouter } from "./modules/availability/availability.routes";
 import { bookingsRouter } from "./modules/bookings/bookings.routes";
+import { matchingRouter } from "./modules/matching/matching.routes";
 import { requestsRouter } from "./modules/requests/requests.routes";
 import { reviewsRouter } from "./modules/reviews/reviews.routes";
 
@@ -51,6 +52,7 @@ export function createApp(): Express {
   app.use("/requests", requestsRouter);
   app.use("/bookings", bookingsRouter);
   app.use("/reviews", reviewsRouter);
+  app.use("/search", matchingRouter);
 
   // Order matters: unmatched routes -> 404, then the error boundary.
   app.use(notFoundHandler);
