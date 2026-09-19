@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 interface RatingDisplayProps {
   value: number;
   count: number;
+  showCount?: boolean;
   className?: string;
 }
 
-export function RatingDisplay({ value, count, className }: RatingDisplayProps) {
+export function RatingDisplay({ value, count, showCount = true, className }: RatingDisplayProps) {
   const rounded = Math.max(0, Math.min(5, Math.round(value)));
 
   return (
@@ -24,7 +25,9 @@ export function RatingDisplay({ value, count, className }: RatingDisplayProps) {
           />
         ))}
       </span>
-      <span className="text-muted-foreground">{count > 0 ? `${value.toFixed(1)} (${count})` : "No ratings yet"}</span>
+      {showCount ? (
+        <span className="text-muted-foreground">{count > 0 ? `${value.toFixed(1)} (${count})` : "No ratings yet"}</span>
+      ) : null}
     </span>
   );
 }

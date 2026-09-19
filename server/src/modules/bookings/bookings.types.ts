@@ -13,6 +13,7 @@ export interface Booking {
   endTime: string;
   totalAmount: number;
   status: BookingStatus;
+  cancelReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }

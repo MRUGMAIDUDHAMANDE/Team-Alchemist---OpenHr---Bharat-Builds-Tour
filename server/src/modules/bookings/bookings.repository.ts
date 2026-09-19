@@ -1,7 +1,7 @@
-import { GetCommand, QueryCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, UpdateCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../aws/clients";
 import { env } from "../../config/env";
-import type { Booking } from "./bookings.types";
+import type { Booking, BookingStatus } from "./bookings.types";
 
 export const BOOKING_AVAILABILITY_INDEX = "availability-index";
 export const BOOKING_PUBLISHER_INDEX = "publisher-index";
@@ -67,5 +67,34 @@ export const bookingsRepository = {
 
   async listBySeeker(seekerId: string, limit: number, exclusiveStartKey?: Record<string, unknown>): Promise<BookingListResult> {
     return queryByOwner(BOOKING_SEEKER_INDEX, "seekerId", seekerId, limit, exclusiveStartKey);
+  },
+
+  async transitionBooking(bookingId: string, from: BookingStatus[], to: BookingStatus, extra?: { cancelReason?: string }): Promise<Booking> {
+    const names: Record<string, string> = { "#status": "status" };
+    const values: Record<string, unknown> = { ":to": to, ":now": new Date().toISOString() };
+    const assignments = ["#status = :to", "updatedAt = :now"];
+
+    if (extra?.cancelReason !== undefined) {
+      names["#cancelReason"] = "cancelReason";
+      values[":cancelReason"] = extra.cancelReason;
+      assignments.push("#cancelReason = :cancelReason");
+    }
+
+    from.forEach((status, index) => {
+      values[`:from${index}`] = status;
+    });
+
+    const result = await ddb.send(
+      new UpdateCommand({
+        TableName: env.DYNAMODB_BOOKINGS_TABLE,
+        Key: { bookingId },
+        UpdateExpression: `SET ${assignments.join(", ")}`,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ConditionExpression: `attribute_exists(bookingId) AND #status IN (${from.map((_, index) => `:from${index}`).join(", ")})`,
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return result.Attributes as Booking;
   },
 };

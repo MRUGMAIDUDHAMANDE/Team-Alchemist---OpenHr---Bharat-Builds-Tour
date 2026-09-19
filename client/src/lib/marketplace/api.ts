@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api/client";
-import type { Booking, BookingPage, BookingRequest, RequestPage, RequestStatus } from "./types";
+import type { Booking, BookingPage, BookingRequest, RequestPage, RequestStatus, Review } from "./types";
 
 export const requestsApi = {
   create(input: { availabilityId: string; message: string }) {
@@ -39,6 +39,32 @@ export const requestsApi = {
   },
 };
 
+export const reviewsApi = {
+  create(input: { bookingId: string; rating: number; text: string }) {
+    return apiRequest<{ review: Review }>("/reviews", {
+      method: "POST",
+      body: input,
+      auth: true,
+    });
+  },
+
+  listByReviewee(revieweeId: string) {
+    const params = new URLSearchParams({ revieweeId, limit: "10" });
+    return apiRequest<{ items: Review[]; nextCursor: string | null }>(
+      `/reviews?${params.toString()}`,
+      { auth: true },
+    );
+  },
+
+  listByBooking(bookingId: string) {
+    const params = new URLSearchParams({ bookingId });
+    return apiRequest<{ items: Review[]; nextCursor: string | null }>(
+      `/reviews?${params.toString()}`,
+      { auth: true },
+    );
+  },
+};
+
 export const bookingsApi = {
   listMine(role: "seeker" | "publisher", cursor?: string) {
     const params = new URLSearchParams({ role, limit: "20" });
@@ -50,6 +76,27 @@ export const bookingsApi = {
     return apiRequest<{ booking: Booking }>(
       `/bookings/${encodeURIComponent(bookingId)}`,
       { auth: true },
+    );
+  },
+
+  start(bookingId: string) {
+    return apiRequest<{ booking: Booking }>(
+      `/bookings/${encodeURIComponent(bookingId)}/start`,
+      { method: "POST", auth: true },
+    );
+  },
+
+  complete(bookingId: string) {
+    return apiRequest<{ booking: Booking }>(
+      `/bookings/${encodeURIComponent(bookingId)}/complete`,
+      { method: "POST", auth: true },
+    );
+  },
+
+  cancel(bookingId: string, reason?: string) {
+    return apiRequest<{ booking: Booking }>(
+      `/bookings/${encodeURIComponent(bookingId)}/cancel`,
+      { method: "POST", body: reason ? { reason } : {}, auth: true },
     );
   },
 };

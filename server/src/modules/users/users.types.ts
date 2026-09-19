@@ -31,6 +31,7 @@ export interface UserProfile {
 
   ratingAverage: number;
   ratingCount: number;
+  ratingSum?: number;
   completedBookings: number;
   verificationStatus: VerificationStatus;
 

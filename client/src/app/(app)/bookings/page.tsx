@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ApiError } from "@/lib/api/client";
-import { bookingsApi } from "@/lib/marketplace/api";
+import { useAuth } from "@/lib/auth/auth-context";
+import { bookingsApi, reviewsApi } from "@/lib/marketplace/api";
 import type { Booking } from "@/lib/marketplace/types";
 import { formatSlotWindow } from "@/lib/availability/format";
+import { BookingStatusBadge } from "@/components/marketplace/status-badges";
+import { CancelBookingDialog } from "@/components/marketplace/cancel-booking-dialog";
+import { ReviewDialog } from "@/components/marketplace/review-dialog";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/form/form-alert";
-import { BookingStatusBadge } from "@/components/marketplace/status-badges";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Role = "publisher" | "seeker";
@@ -24,6 +28,9 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,6 +61,49 @@ export default function BookingsPage() {
     setCursor(null);
     setLoading(true);
     setRole(next);
+  };
+
+  const refresh = async () => {
+    try {
+      const page = await bookingsApi.listMine(role);
+      setItems(page.items);
+      setCursor(page.nextCursor);
+    } catch (fetchError) {
+      setError(fetchError instanceof ApiError ? fetchError.message : "Bookings could not be loaded. Try again.");
+    }
+  };
+
+  const act = async (bookingId: string, action: "start" | "complete", successMessage: string) => {
+    setActingId(bookingId);
+    setError(null);
+
+    try {
+      if (action === "start") await bookingsApi.start(bookingId);
+      if (action === "complete") await bookingsApi.complete(bookingId);
+      toast.success(successMessage);
+      await refresh();
+    } catch (actionError) {
+      setError(actionError instanceof ApiError ? actionError.message : "Action could not be completed. Try again.");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleCancelConfirm = async (reason?: string) => {
+    if (!cancelBooking) return;
+    setActingId(cancelBooking.bookingId);
+    setError(null);
+
+    try {
+      await bookingsApi.cancel(cancelBooking.bookingId, reason);
+      toast.success("Booking cancelled");
+      await refresh();
+    } catch (actionError) {
+      setError(actionError instanceof ApiError ? actionError.message : "Booking could not be cancelled. Try again.");
+    } finally {
+      setActingId(null);
+      setCancelBooking(null);
+    }
   };
 
   const handleLoadMore = async () => {
@@ -114,25 +164,16 @@ export default function BookingsPage() {
       ) : (
         <ul className="space-y-4">
           {items.map((booking) => (
-            <li key={booking.bookingId} className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {role === "publisher" ? booking.seekerName : booking.publisherName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatSlotWindow(booking.startTime, booking.endTime)}
-                  </p>
-                </div>
-                <BookingStatusBadge status={booking.status} />
-              </div>
-              <div className="mt-3 flex items-baseline justify-between border-t pt-3 text-sm">
-                <span className="text-muted-foreground">
-                  ₹{booking.hourlyRate.toLocaleString("en-IN")}/hour
-                </span>
-                <span className="font-semibold">Total ₹{booking.totalAmount.toLocaleString("en-IN")}</span>
-              </div>
-            </li>
+            <BookingRow
+              key={booking.bookingId}
+              booking={booking}
+              role={role}
+              acting={actingId === booking.bookingId}
+              onStart={() => act(booking.bookingId, "start", "Service started")}
+              onComplete={() => act(booking.bookingId, "complete", "Booking completed")}
+              onCancel={() => setCancelBooking(booking)}
+              onReview={() => setReviewBooking(booking)}
+            />
           ))}
         </ul>
       )}
@@ -144,6 +185,118 @@ export default function BookingsPage() {
           </Button>
         </div>
       ) : null}
+
+      <ReviewDialog booking={reviewBooking} onClose={() => setReviewBooking(null)} onReviewed={refresh} />
+      <CancelBookingDialog booking={cancelBooking} onClose={() => setCancelBooking(null)} onConfirm={handleCancelConfirm} />
     </div>
+  );
+}
+
+function BookingRow({
+  booking,
+  role,
+  acting,
+  onStart,
+  onComplete,
+  onCancel,
+  onReview,
+}: {
+  booking: Booking;
+  role: Role;
+  acting: boolean;
+  onStart: () => void;
+  onComplete: () => void;
+  onCancel: () => void;
+  onReview: () => void;
+}) {
+  return (
+    <li className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">
+            {role === "publisher" ? booking.seekerName : booking.publisherName}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {formatSlotWindow(booking.startTime, booking.endTime)}
+          </p>
+        </div>
+        <BookingStatusBadge status={booking.status} />
+      </div>
+      <div className="mt-3 flex items-baseline justify-between border-t pt-3 text-sm">
+        <span className="text-muted-foreground">
+          ₹{booking.hourlyRate.toLocaleString("en-IN")}/hour
+        </span>
+        <span className="font-semibold">Total ₹{booking.totalAmount.toLocaleString("en-IN")}</span>
+      </div>
+
+      {booking.status === "CONFIRMED" && role === "publisher" ? (
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Button size="sm" onClick={onStart} disabled={acting}>
+            Start service
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel} disabled={acting}>
+            Cancel booking
+          </Button>
+        </div>
+      ) : null}
+
+      {booking.status === "CONFIRMED" && role === "seeker" ? (
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Button size="sm" variant="outline" onClick={onCancel} disabled={acting}>
+            Cancel booking
+          </Button>
+        </div>
+      ) : null}
+
+      {booking.status === "IN_PROGRESS" ? (
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Button size="sm" onClick={onComplete} disabled={acting}>
+            Mark complete
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel} disabled={acting}>
+            Cancel booking
+          </Button>
+        </div>
+      ) : null}
+
+      {booking.status === "COMPLETED" ? (
+        <div className="flex flex-wrap gap-2 pt-3">
+          <ReviewAction booking={booking} onReview={onReview} />
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function ReviewAction({ booking, onReview }: { booking: Booking; onReview: () => void }) {
+  const { user } = useAuth();
+  const [checked, setChecked] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    reviewsApi
+      .listByBooking(booking.bookingId)
+      .then(({ items }) => {
+        if (!active) return;
+        setAlreadyReviewed(items.some((review) => review.reviewerId === user?.userId));
+        setChecked(true);
+      })
+      .catch(() => {
+        if (active) setChecked(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [booking.bookingId, user?.userId]);
+
+  if (!checked || alreadyReviewed) return null;
+
+  return (
+    <Button size="sm" variant="outline" onClick={onReview}>
+      Leave a review
+    </Button>
   );
 }

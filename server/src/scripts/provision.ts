@@ -39,6 +39,7 @@ const usersTable = process.env.DYNAMODB_USERS_TABLE ?? "openhr-users";
 const availabilityTable = process.env.DYNAMODB_AVAILABILITY_TABLE ?? "openhr-availability";
 const requestsTable = process.env.DYNAMODB_REQUESTS_TABLE ?? "openhr-requests";
 const bookingsTable = process.env.DYNAMODB_BOOKINGS_TABLE ?? "openhr-bookings";
+const reviewsTable = process.env.DYNAMODB_REVIEWS_TABLE ?? "openhr-reviews";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
 
 const cognito = new CognitoIdentityProviderClient({ region });
@@ -323,6 +324,24 @@ async function ensureBookingsTable(): Promise<string> {
   );
 }
 
+async function ensureReviewsTable(): Promise<string> {
+  return ensureTable(
+    reviewsTable,
+    ["reviewId", "revieweeId", "bookingId", "createdAt"],
+    [{ AttributeName: "reviewId", KeyType: "HASH" }],
+    [
+      {
+        IndexName: "reviewee-index",
+        Keys: [
+          { AttributeName: "revieweeId", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+      { IndexName: "booking-index", Keys: [{ AttributeName: "bookingId", KeyType: "HASH" }] },
+    ],
+  );
+}
+
 async function ensureMediaBucket(): Promise<string | null> {
   if (!bucketName) {
     log("S3 bucket skipped", "Set S3_BUCKET_NAME to provision one.");
@@ -404,6 +423,7 @@ async function main() {
   const slots = await ensureAvailabilityTable();
   const requests = await ensureRequestsTable();
   const bookings = await ensureBookingsTable();
+  const reviews = await ensureReviewsTable();
   const bucket = await ensureMediaBucket();
 
   console.log("\n────────────────────────────────────────────────────────────");
@@ -416,6 +436,7 @@ async function main() {
   console.log(`DYNAMODB_AVAILABILITY_TABLE=${slots}`);
   console.log(`DYNAMODB_REQUESTS_TABLE=${requests}`);
   console.log(`DYNAMODB_BOOKINGS_TABLE=${bookings}`);
+  console.log(`DYNAMODB_REVIEWS_TABLE=${reviews}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);
   console.log(`S3_REGION=${region}`);
   console.log("────────────────────────────────────────────────────────────");

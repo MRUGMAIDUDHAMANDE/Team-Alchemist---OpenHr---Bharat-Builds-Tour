@@ -40,6 +40,8 @@ const envSchema = z.object({
   DYNAMODB_REQUESTS_TABLE: z.string().default("openhr-requests"),
   /** DynamoDB table that stores confirmed bookings. */
   DYNAMODB_BOOKINGS_TABLE: z.string().default("openhr-bookings"),
+  /** DynamoDB table that stores booking reviews. */
+  DYNAMODB_REVIEWS_TABLE: z.string().default("openhr-reviews"),
 
   /** Amazon S3 bucket for private media (wired up in a later milestone). */
   S3_BUCKET_NAME: z.string().optional(),
