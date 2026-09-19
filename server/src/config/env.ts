@@ -42,6 +42,10 @@ const envSchema = z.object({
   DYNAMODB_BOOKINGS_TABLE: z.string().default("openhr-bookings"),
   /** DynamoDB table that stores booking reviews. */
   DYNAMODB_REVIEWS_TABLE: z.string().default("openhr-reviews"),
+  /** DynamoDB table that stores upload metadata. */
+  DYNAMODB_MEDIA_TABLE: z.string().default("openhr-media"),
+  /** DynamoDB table that stores contact submissions. */
+  DYNAMODB_CONTACT_TABLE: z.string().default("openhr-contact"),
 
   /** Amazon Bedrock inference profile used only for search assistance. */
   BEDROCK_MODEL_ID: z.string().default("apac.amazon.nova-micro-v1:0"),

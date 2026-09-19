@@ -40,6 +40,8 @@ const availabilityTable = process.env.DYNAMODB_AVAILABILITY_TABLE ?? "openhr-ava
 const requestsTable = process.env.DYNAMODB_REQUESTS_TABLE ?? "openhr-requests";
 const bookingsTable = process.env.DYNAMODB_BOOKINGS_TABLE ?? "openhr-bookings";
 const reviewsTable = process.env.DYNAMODB_REVIEWS_TABLE ?? "openhr-reviews";
+const mediaTable = process.env.DYNAMODB_MEDIA_TABLE ?? "openhr-media";
+const contactTable = process.env.DYNAMODB_CONTACT_TABLE ?? "openhr-contact";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
 
 const cognito = new CognitoIdentityProviderClient({ region });
@@ -255,11 +257,15 @@ async function ensureTable(table: string, attributes: string[], keys: TableKey[]
       BillingMode: "PAY_PER_REQUEST",
       AttributeDefinitions: attributes.map((name) => ({ AttributeName: name, AttributeType: "S" })),
       KeySchema: keys.map((key) => ({ AttributeName: key.AttributeName, KeyType: key.KeyType })),
-      GlobalSecondaryIndexes: indexes.map((index) => ({
-        IndexName: index.IndexName,
-        KeySchema: index.Keys.map((key) => ({ AttributeName: key.AttributeName, KeyType: key.KeyType })),
-        Projection: { ProjectionType: "ALL" },
-      })),
+      ...(indexes.length > 0
+        ? {
+            GlobalSecondaryIndexes: indexes.map((index) => ({
+              IndexName: index.IndexName,
+              KeySchema: index.Keys.map((key) => ({ AttributeName: key.AttributeName, KeyType: key.KeyType })),
+              Projection: { ProjectionType: "ALL" },
+            })),
+          }
+        : {}),
       Tags: [{ Key: "Project", Value: "OpenHR" }],
     }),
   );
@@ -339,6 +345,32 @@ async function ensureReviewsTable(): Promise<string> {
       },
       { IndexName: "booking-index", Keys: [{ AttributeName: "bookingId", KeyType: "HASH" }] },
     ],
+  );
+}
+
+async function ensureMediaTable(): Promise<string> {
+  return ensureTable(
+    mediaTable,
+    ["mediaId", "ownerId", "createdAt"],
+    [{ AttributeName: "mediaId", KeyType: "HASH" }],
+    [
+      {
+        IndexName: "owner-index",
+        Keys: [
+          { AttributeName: "ownerId", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+    ],
+  );
+}
+
+async function ensureContactTable(): Promise<string> {
+  return ensureTable(
+    contactTable,
+    ["messageId"],
+    [{ AttributeName: "messageId", KeyType: "HASH" }],
+    [],
   );
 }
 
@@ -424,6 +456,8 @@ async function main() {
   const requests = await ensureRequestsTable();
   const bookings = await ensureBookingsTable();
   const reviews = await ensureReviewsTable();
+  const media = await ensureMediaTable();
+  const contact = await ensureContactTable();
   const bucket = await ensureMediaBucket();
 
   console.log("\n────────────────────────────────────────────────────────────");
@@ -437,6 +471,8 @@ async function main() {
   console.log(`DYNAMODB_REQUESTS_TABLE=${requests}`);
   console.log(`DYNAMODB_BOOKINGS_TABLE=${bookings}`);
   console.log(`DYNAMODB_REVIEWS_TABLE=${reviews}`);
+  console.log(`DYNAMODB_MEDIA_TABLE=${media}`);
+  console.log(`DYNAMODB_CONTACT_TABLE=${contact}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);
   console.log(`S3_REGION=${region}`);
   console.log("────────────────────────────────────────────────────────────");

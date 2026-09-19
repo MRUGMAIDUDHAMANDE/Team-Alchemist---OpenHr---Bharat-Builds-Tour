@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
 import { AccountCard } from "@/components/profile/account-card";
 import { ProfileCard } from "@/components/profile/profile-card";
+import { ProfilePhoto } from "@/components/profile/profile-photo";
 import { Button } from "@/components/ui/button";
 
 export default function ProfilePage() {
@@ -28,7 +29,17 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <ProfileCard profile={user} />
+      <ProfileCard
+        profile={user}
+        avatar={
+          <ProfilePhoto
+            key={user.profilePhotoKey ?? "none"}
+            s3Key={user.profilePhotoKey}
+            name={user.name}
+            size="lg"
+          />
+        }
+      />
       <AccountCard user={user} />
     </div>
   );

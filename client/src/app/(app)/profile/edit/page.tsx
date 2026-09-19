@@ -1,10 +1,12 @@
 "use client";
 
 import { useAuth } from "@/lib/auth/auth-context";
+import { PhotoUpload } from "@/components/profile/photo-upload";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ProfilePhoto } from "@/components/profile/profile-photo";
 
 export default function EditProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   if (!user) return null;
 
@@ -13,6 +15,16 @@ export default function EditProfilePage() {
       <div className="space-y-1">
         <h1 className="font-heading text-xl font-semibold tracking-tight">Edit profile</h1>
         <p className="text-sm text-muted-foreground">Your public profile updates immediately after you save.</p>
+      </div>
+
+      <div className="flex items-center gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10">
+        <ProfilePhoto
+          key={user.profilePhotoKey ?? "none"}
+          s3Key={user.profilePhotoKey}
+          name={user.name}
+          size="lg"
+        />
+        <PhotoUpload onUploaded={() => refreshUser()} />
       </div>
 
       <div className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">

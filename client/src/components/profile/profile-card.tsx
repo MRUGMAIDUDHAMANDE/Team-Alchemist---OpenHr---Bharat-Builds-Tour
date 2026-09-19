@@ -8,6 +8,7 @@ import { RatingDisplay } from "./rating-display";
 interface ProfileCardProps {
   profile: PublicUserProfile | AuthUser;
   action?: ReactNode;
+  avatar?: ReactNode;
 }
 
 const modeLabels = {
@@ -16,7 +17,7 @@ const modeLabels = {
   ANY: "Online or in person",
 } as const;
 
-export function ProfileCard({ profile, action }: ProfileCardProps) {
+export function ProfileCard({ profile, action, avatar }: ProfileCardProps) {
   const initials = profile.name
     .split(" ")
     .map((part) => part[0])
@@ -28,9 +29,11 @@ export function ProfileCard({ profile, action }: ProfileCardProps) {
     <section className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
-            {initials}
-          </span>
+          {avatar ?? (
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
+              {initials}
+            </span>
+          )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-heading text-base font-semibold">{profile.name}</h2>
