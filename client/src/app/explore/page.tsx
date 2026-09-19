@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { AvailabilityMode } from "@/lib/auth/types";
@@ -34,17 +34,46 @@ const ratingOptions = [
   { value: "4.5", label: "4.5 stars and up" },
 ];
 
+type SortKey = "soonest" | "rate" | "rating";
+
+const sortOptions: Array<{ value: SortKey; label: string }> = [
+  { value: "soonest", label: "Soonest first" },
+  { value: "rate", label: "Lowest rate" },
+  { value: "rating", label: "Highest rated" },
+];
+
+function validMode(value: string | null): AvailabilityMode {
+  return value === "ONLINE" || value === "IN_PERSON" || value === "ANY" ? value : "ANY";
+}
+
 export default function ExplorePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-10">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-72 w-full" />
+        </div>
+      }
+    >
+      <ExploreContent />
+    </Suspense>
+  );
+}
+
+function ExploreContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated } = useAuth();
-  const [skills, setSkills] = useState("");
-  const [location, setLocation] = useState("");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [maxRate, setMaxRate] = useState("");
-  const [mode, setMode] = useState<AvailabilityMode>("ANY");
-  const [minRating, setMinRating] = useState("");
+  const [skills, setSkills] = useState(searchParams.get("skills") ?? "");
+  const [location, setLocation] = useState(searchParams.get("location") ?? "");
+  const [date, setDate] = useState(searchParams.get("date") ?? "");
+  const [startTime, setStartTime] = useState(searchParams.get("from") ?? "");
+  const [endTime, setEndTime] = useState(searchParams.get("to") ?? "");
+  const [maxRate, setMaxRate] = useState(searchParams.get("maxRate") ?? "");
+  const [mode, setMode] = useState<AvailabilityMode>(validMode(searchParams.get("mode")));
+  const [minRating, setMinRating] = useState(searchParams.get("minRating") ?? "");
+  const [sort, setSort] = useState<SortKey>("soonest");
   const [items, setItems] = useState<AvailabilitySlot[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +85,7 @@ export default function ExplorePage() {
     let active = true;
 
     availabilityApi
-      .search({ limit: 20 })
+      .search(paramsFromUrl(searchParams))
       .then((page) => {
         if (!active) return;
         setItems(page.items);
@@ -72,9 +101,16 @@ export default function ExplorePage() {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const visibleItems = user ? items.filter((slot) => slot.publisherId !== user.userId) : items;
+  const visibleItems = useMemo(() => {
+    const mineExcluded = user ? items.filter((slot) => slot.publisherId !== user.userId) : items;
+    const sorted = [...mineExcluded];
+    if (sort === "rate") sorted.sort((a, b) => a.hourlyRate - b.hourlyRate);
+    if (sort === "rating") sorted.sort((a, b) => b.publisherRatingAverage - a.publisherRatingAverage);
+    return sorted;
+  }, [items, user, sort]);
 
   const handleRequest = (slot: AvailabilitySlot) => {
     if (!isAuthenticated) {
@@ -130,10 +166,25 @@ export default function ExplorePage() {
     return filter;
   };
 
+  const syncUrl = () => {
+    const params = new URLSearchParams();
+    if (skills.trim()) params.set("skills", skills.trim());
+    if (location.trim()) params.set("location", location.trim());
+    if (date) params.set("date", date);
+    if (startTime) params.set("from", startTime);
+    if (endTime) params.set("to", endTime);
+    if (maxRate.trim()) params.set("maxRate", maxRate.trim());
+    if (mode !== "ANY") params.set("mode", mode);
+    if (minRating) params.set("minRating", minRating);
+    const query = params.toString();
+    router.replace(query ? `/explore?${query}` : "/explore", { scroll: false });
+  };
+
   const handleSearch = async () => {
     setError(null);
     const filter = buildFilter();
     if (!filter) return;
+    syncUrl();
     setLoading(true);
     setItems([]);
     setCursor(null);
@@ -162,6 +213,7 @@ export default function ExplorePage() {
     setLoading(true);
     setItems([]);
     setCursor(null);
+    router.replace("/explore", { scroll: false });
 
     try {
       const page = await availabilityApi.search({ limit: 20 });
@@ -268,6 +320,21 @@ export default function ExplorePage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="explore-sort">Sort by</Label>
+              <Select value={sort} onValueChange={(value) => setSort(value as SortKey)}>
+                <SelectTrigger id="explore-sort" className="h-9 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -281,6 +348,14 @@ export default function ExplorePage() {
         </section>
 
         {error ? <FormAlert>{error}</FormAlert> : null}
+
+        {!loading && !error ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            {visibleItems.length === 0
+              ? "No slots found."
+              : `Showing ${visibleItems.length} available slot${visibleItems.length === 1 ? "" : "s"}.`}
+          </p>
+        ) : null}
 
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -326,8 +401,6 @@ export default function ExplorePage() {
           </div>
         )}
 
-        <RequestDialog slot={requestSlot} onClose={() => setRequestSlot(null)} onSent={() => router.push("/requests")} />
-
         {cursor && !loading ? (
           <div className="flex justify-center">
             <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
@@ -335,7 +408,36 @@ export default function ExplorePage() {
             </Button>
           </div>
         ) : null}
+
+        <RequestDialog slot={requestSlot} onClose={() => setRequestSlot(null)} onSent={() => router.push("/requests")} />
       </main>
     </div>
   );
+}
+
+function paramsFromUrl(searchParams: URLSearchParams): SearchAvailabilityFilter {
+  const filter: SearchAvailabilityFilter = { limit: 20 };
+  const skills = searchParams.get("skills");
+  const location = searchParams.get("location");
+  const date = searchParams.get("date");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const maxRate = searchParams.get("maxRate");
+  const mode = searchParams.get("mode");
+  const minRating = searchParams.get("minRating");
+
+  if (skills) filter.skills = skills;
+  if (location) filter.location = location;
+  if (mode === "ONLINE" || mode === "IN_PERSON") filter.mode = mode;
+  if (date && from) {
+    const start = combineLocalDateTime(date, from);
+    if (start) filter.from = start.toISOString();
+  }
+  if (date && to) {
+    const end = combineLocalDateTime(date, to);
+    if (end) filter.to = end.toISOString();
+  }
+  if (maxRate && Number.isInteger(Number(maxRate))) filter.maxHourlyRate = Number(maxRate);
+  if (minRating && !Number.isNaN(Number(minRating))) filter.minRating = Number(minRating);
+  return filter;
 }

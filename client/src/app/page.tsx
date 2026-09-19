@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, CalendarCheckIcon, SearchIcon, ShieldCheckIcon } from "lucide-react";
 import { AvailabilityCard } from "@/components/availability-card";
+import { LiveSlots } from "@/components/live-slots";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,20 +85,20 @@ export default function LandingPage() {
 
         <section id="available" className="border-t bg-muted/40">
           <div className="mx-auto w-full max-w-6xl px-4 py-16">
-            <div className="max-w-2xl">
-              <h2 className="font-heading text-2xl font-semibold tracking-tight">
-                People available today
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Availability is the first-class object on OpenHR. Slots update as people become free
-                or get booked.
-              </p>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="max-w-2xl">
+                <h2 className="font-heading text-2xl font-semibold tracking-tight">
+                  People available right now
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Live slots published on OpenHR. Slots update as people become free or get booked.
+                </p>
+              </div>
+              <Button variant="outline" asChild>
+                <Link href="/explore">Explore all</Link>
+              </Button>
             </div>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {sampleAvailability.map((slot) => (
-                <AvailabilityCard key={slot.name} {...slot} />
-              ))}
-            </div>
+            <LiveSlots />
           </div>
         </section>
 
