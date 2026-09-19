@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../lib/async-handler";
 import { AppError } from "../../lib/errors";
 import { bookingsRepository } from "../bookings/bookings.repository";
+import { emitNotification } from "../notifications/events";
 import { usersRepository } from "../users/users.repository";
 import { reviewsRepository } from "./reviews.repository";
 import type { CreateReviewInput, ListReviewsQuery } from "./reviews.schemas";
@@ -24,6 +25,13 @@ export const reviewsController = {
       bookingsRepository,
       usersRepository,
     );
+    await emitNotification({
+      userId: review.revieweeId,
+      type: "REVIEW_CREATED",
+      title: "New review",
+      body: `${review.reviewerName} left you a ${review.rating}-star review.`,
+      link: `/u/${review.revieweeId}`,
+    });
     res.status(201).json({ data: { review } });
   }),
 

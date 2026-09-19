@@ -46,6 +46,10 @@ const envSchema = z.object({
   DYNAMODB_MEDIA_TABLE: z.string().default("openhr-media"),
   /** DynamoDB table that stores contact submissions. */
   DYNAMODB_CONTACT_TABLE: z.string().default("openhr-contact"),
+  /** DynamoDB table that stores in-app notifications. */
+  DYNAMODB_NOTIFICATIONS_TABLE: z.string().default("openhr-notifications"),
+  /** Amazon SNS topic for event fan-out. Empty disables SNS delivery. */
+  SNS_TOPIC_ARN: z.string().optional(),
 
   /** Amazon Bedrock inference profile used only for search assistance. */
   BEDROCK_MODEL_ID: z.string().default("apac.amazon.nova-micro-v1:0"),

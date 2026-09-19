@@ -32,6 +32,7 @@ import {
   PutPublicAccessBlockCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { CreateTopicCommand, SNSClient, SubscribeCommand } from "@aws-sdk/client-sns";
 import "dotenv/config";
 
 const region = process.env.AWS_REGION ?? "ap-south-1";
@@ -42,11 +43,16 @@ const bookingsTable = process.env.DYNAMODB_BOOKINGS_TABLE ?? "openhr-bookings";
 const reviewsTable = process.env.DYNAMODB_REVIEWS_TABLE ?? "openhr-reviews";
 const mediaTable = process.env.DYNAMODB_MEDIA_TABLE ?? "openhr-media";
 const contactTable = process.env.DYNAMODB_CONTACT_TABLE ?? "openhr-contact";
+const notificationsTable = process.env.DYNAMODB_NOTIFICATIONS_TABLE ?? "openhr-notifications";
+const notificationEmail = process.env.NOTIFICATION_EMAIL ?? "";
 const bucketName = process.env.S3_BUCKET_NAME ?? "";
 
 const cognito = new CognitoIdentityProviderClient({ region });
 const dynamo = new DynamoDBClient({ region });
 const s3 = new S3Client({ region });
+const sns = new SNSClient({ region });
+
+const TOPIC_NAME = "openhr-events";
 
 const POOL_NAME = "openhr-user-pool";
 const CLIENT_NAME = "openhr-web";
@@ -374,6 +380,40 @@ async function ensureContactTable(): Promise<string> {
   );
 }
 
+async function ensureNotificationsTable(): Promise<string> {
+  return ensureTable(
+    notificationsTable,
+    ["notificationId", "userId", "createdAt"],
+    [{ AttributeName: "notificationId", KeyType: "HASH" }],
+    [
+      {
+        IndexName: "user-index",
+        Keys: [
+          { AttributeName: "userId", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+      },
+    ],
+  );
+}
+
+async function ensureEventsTopic(): Promise<string> {
+  const created = await sns.send(new CreateTopicCommand({ Name: TOPIC_NAME, Tags: [{ Key: "Project", Value: "OpenHR" }] }));
+  if (!created.TopicArn) throw new Error("Failed to resolve the SNS topic ARN");
+  log("SNS topic ready", created.TopicArn);
+
+  if (notificationEmail) {
+    await sns.send(
+      new SubscribeCommand({ TopicArn: created.TopicArn, Protocol: "email", Endpoint: notificationEmail }),
+    );
+    log("SNS email subscription requested", `${notificationEmail} (confirm via inbox)`);
+  } else {
+    log("SNS email subscription skipped", "Set NOTIFICATION_EMAIL to receive event emails.");
+  }
+
+  return created.TopicArn;
+}
+
 async function ensureMediaBucket(): Promise<string | null> {
   if (!bucketName) {
     log("S3 bucket skipped", "Set S3_BUCKET_NAME to provision one.");
@@ -458,6 +498,8 @@ async function main() {
   const reviews = await ensureReviewsTable();
   const media = await ensureMediaTable();
   const contact = await ensureContactTable();
+  const notifications = await ensureNotificationsTable();
+  const topicArn = await ensureEventsTopic();
   const bucket = await ensureMediaBucket();
 
   console.log("\n────────────────────────────────────────────────────────────");
@@ -473,6 +515,8 @@ async function main() {
   console.log(`DYNAMODB_REVIEWS_TABLE=${reviews}`);
   console.log(`DYNAMODB_MEDIA_TABLE=${media}`);
   console.log(`DYNAMODB_CONTACT_TABLE=${contact}`);
+  console.log(`DYNAMODB_NOTIFICATIONS_TABLE=${notifications}`);
+  console.log(`SNS_TOPIC_ARN=${topicArn}`);
   console.log(`S3_BUCKET_NAME=${bucket ?? ""}`);
   console.log(`S3_REGION=${region}`);
   console.log("────────────────────────────────────────────────────────────");

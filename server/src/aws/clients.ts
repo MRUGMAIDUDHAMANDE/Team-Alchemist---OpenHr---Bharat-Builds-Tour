@@ -2,6 +2,7 @@ import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
+import { SNSClient } from "@aws-sdk/client-sns";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { env } from "../config/env";
 
@@ -46,3 +47,5 @@ export const s3Client = new S3Client({
   ...baseClientConfig,
   region: env.S3_REGION ?? env.AWS_REGION,
 });
+
+export const snsClient = new SNSClient(baseClientConfig);

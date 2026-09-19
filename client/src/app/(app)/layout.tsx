@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
+import { NotificationBell } from "@/components/notification-bell";
 import { RequireAuth } from "@/components/require-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </Link>
             <div className="ml-auto flex items-center gap-1.5">
               <ThemeToggle />
+              <NotificationBell />
               <UserMenu />
             </div>
           </header>

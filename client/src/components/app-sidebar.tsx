@@ -27,11 +27,10 @@ const primaryNav: NavItem[] = [
   { href: "/availability", label: "My availability", icon: CalendarRangeIcon },
   { href: "/requests", label: "Requests", icon: InboxIcon },
   { href: "/bookings", label: "Bookings", icon: CalendarCheckIcon },
+  { href: "/notifications", label: "Notifications", icon: BellIcon },
 ];
 
-const upcomingNav: NavItem[] = [
-  { label: "Notifications", icon: BellIcon },
-];
+const upcomingNav: NavItem[] = [];
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -71,21 +70,25 @@ export function AppSidebar() {
           );
         })}
 
-        <p className="mt-4 px-2.5 text-xs text-muted-foreground">Coming next</p>
-        {upcomingNav.map((item) => {
-          const Icon = item.icon;
-          return (
-            <span
-              key={item.label}
-              aria-disabled="true"
-              title="Available in a later milestone"
-              className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground/60"
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </span>
-          );
-        })}
+        {upcomingNav.length > 0 ? (
+          <>
+            <p className="mt-4 px-2.5 text-xs text-muted-foreground">Coming next</p>
+            {upcomingNav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <span
+                  key={item.label}
+                  aria-disabled="true"
+                  title="Available in a later milestone"
+                  className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground/60"
+                >
+                  <Icon className="size-4" />
+                  {item.label}
+                </span>
+              );
+            })}
+          </>
+        ) : null}
       </nav>
     </aside>
   );

@@ -11,6 +11,7 @@ import { bookingsRouter } from "./modules/bookings/bookings.routes";
 import { contactRouter } from "./modules/contact/contact.routes";
 import { matchingRouter } from "./modules/matching/matching.routes";
 import { mediaRouter } from "./modules/media/media.routes";
+import { notificationsRouter } from "./modules/notifications/notifications.routes";
 import { requestsRouter } from "./modules/requests/requests.routes";
 import { reviewsRouter } from "./modules/reviews/reviews.routes";
 
@@ -57,6 +58,7 @@ export function createApp(): Express {
   app.use("/search", matchingRouter);
   app.use("/contact", contactRouter);
   app.use("/media", mediaRouter);
+  app.use("/notifications", notificationsRouter);
 
   // Order matters: unmatched routes -> 404, then the error boundary.
   app.use(notFoundHandler);
